@@ -1,23 +1,18 @@
-import express, { Application, Request, Response } from 'express';
-import cors from 'cors';
-import cookieParser from 'cookie-parser';
+import express from "express";
+import { corsMiddleware } from "./config/cors";
+import attendanceRoutes from "./routes/attendance.routes";
+import studentRoutes from "./routes/student.routes";
 
-const app: Application = express();
+const app = express();
 
-// Middlewares
+app.use(corsMiddleware);
 app.use(express.json());
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
-}));
-app.use(cookieParser());
 
-// Test route
-app.get('/', (req: Request, res: Response) => {
-  res.send({
-    success: true,
-    message: 'Edujira Server is running successfully!',
-  });
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/students", studentRoutes);
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 export default app;
