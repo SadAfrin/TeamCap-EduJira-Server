@@ -1,10 +1,7 @@
-// src/server.ts (File-er ekdom top-e)
 import * as dns from 'node:dns';
-dns.setServers(['8.8.8.8', '8.8.4.4']); // Google DNS set kore dilo network error fix korar jonno
-
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 import dotenv from 'dotenv';
 dotenv.config();
-
 import app from './app';
 import connectDB from './config/db';
 
@@ -21,4 +18,11 @@ async function startServer() {
   }
 }
 
-startServer();
+// Only run the traditional listener locally — Vercel handles invocation itself
+if (!process.env.VERCEL) {
+  startServer();
+} else {
+  connectDB(); // still connect to DB on Vercel, just don't call .listen()
+}
+
+export default app;
