@@ -1,4 +1,11 @@
 import mongoose from 'mongoose';
+import dns from 'node:dns';
+
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch {
+  // Ignore if DNS server configuration is restricted
+}
 
 const connectDB = async (): Promise<void> => {
   try {
