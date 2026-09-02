@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { getAttendanceByClassDate, bulkMarkAttendance } from "../controllers/attendance.controller";
+import {
+  getAttendanceByClassDate,
+  bulkMarkAttendance,
+} from "../controllers/attendance.controller";
 
 const router = Router();
 
