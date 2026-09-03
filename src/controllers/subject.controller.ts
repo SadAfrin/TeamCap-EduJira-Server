@@ -30,7 +30,7 @@ export async function getAllSubjects(req: Request, res: Response) {
 // GET /api/subjects/:id
 export async function getSubjectById(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const subject = await Subject.findOne({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { subjectCode: id }],
     });
@@ -84,7 +84,7 @@ export async function createSubject(req: Request, res: Response) {
 // PUT /api/subjects/:id
 export async function updateSubject(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const subject = await Subject.findOneAndUpdate(
@@ -106,7 +106,7 @@ export async function updateSubject(req: Request, res: Response) {
 // DELETE /api/subjects/:id
 export async function deleteSubject(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const subject = await Subject.findOneAndDelete({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { subjectCode: id }],
     });

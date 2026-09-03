@@ -33,7 +33,7 @@ export async function getAllStudents(req: Request, res: Response) {
 // GET /api/students/:id
 export async function getStudentById(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const student = await Student.findOne({ $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { studentId: id }] });
     if (!student) {
       return res.status(404).json({ success: false, message: "Student not found" });
@@ -84,7 +84,7 @@ export async function createStudent(req: Request, res: Response) {
 // PUT /api/students/:id - Update student
 export async function updateStudent(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const student = await Student.findOneAndUpdate(
@@ -106,7 +106,7 @@ export async function updateStudent(req: Request, res: Response) {
 // DELETE /api/students/:id - Delete student
 export async function deleteStudent(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const student = await Student.findOneAndDelete({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { studentId: id }],
     });

@@ -47,7 +47,7 @@ export async function getAllClasses(req: Request, res: Response) {
 // GET /api/classes/:id
 export async function getClassById(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const cls = await Class.findOne({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { className: id }],
     });
@@ -98,7 +98,7 @@ export async function createClass(req: Request, res: Response) {
 // PUT /api/classes/:id
 export async function updateClass(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const cls = await Class.findOneAndUpdate(
@@ -120,7 +120,7 @@ export async function updateClass(req: Request, res: Response) {
 // DELETE /api/classes/:id
 export async function deleteClass(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const cls = await Class.findOneAndDelete({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { className: id }],
     });

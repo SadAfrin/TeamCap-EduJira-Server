@@ -33,7 +33,7 @@ export async function getAllParents(req: Request, res: Response) {
 // GET /api/parents/:id
 export async function getParentById(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const parent = await Parent.findOne({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { parentId: id }, { email: id }],
     });
@@ -82,7 +82,7 @@ export async function createParent(req: Request, res: Response) {
 // PUT /api/parents/:id
 export async function updateParent(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const parent = await Parent.findOneAndUpdate(
@@ -104,7 +104,7 @@ export async function updateParent(req: Request, res: Response) {
 // DELETE /api/parents/:id
 export async function deleteParent(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const parent = await Parent.findOneAndDelete({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { parentId: id }],
     });
@@ -122,7 +122,7 @@ export async function deleteParent(req: Request, res: Response) {
 // POST /api/parents/:id/link-child - Link a student to a parent
 export async function linkChildToParent(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { studentId, relationship } = req.body;
 
     const student = await Student.findOne({ studentId });
