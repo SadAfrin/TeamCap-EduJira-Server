@@ -76,7 +76,7 @@ export async function getTeacherPortalStats(req: Request, res: Response) {
     }
 
     const assignedClasses = teacher?.classesAssigned || ["Class 8-A", "Class 8-B", "Class 9-A"];
-    const classNames = Array.from(new Set(assignedClasses.map((c) => c.split("-")[0])));
+    const classNames = Array.from(new Set(assignedClasses.map((c: string) => c.split("-")[0])));
 
     const [students, subjects] = await Promise.all([
       Student.find({ className: { $in: classNames } }).limit(20),
@@ -154,7 +154,7 @@ export async function getParentPortalStats(req: Request, res: Response) {
     }
 
     // Fetch live student objects for each child
-    const childrenIds = parent?.children?.map((c) => c.studentId) || [];
+    const childrenIds = parent?.children?.map((c: any) => c.studentId) || [];
     const childrenDetails = await Student.find({ studentId: { $in: childrenIds } });
 
     return res.json({

@@ -30,7 +30,7 @@ export async function getAllAdmins(req: Request, res: Response) {
 // GET /api/admins/:id
 export async function getAdminById(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const admin = await Admin.findOne({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { adminId: id }, { email: id }],
     });
@@ -83,7 +83,7 @@ export async function createAdmin(req: Request, res: Response) {
 // PUT /api/admins/:id
 export async function updateAdmin(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const admin = await Admin.findOneAndUpdate(
@@ -105,7 +105,7 @@ export async function updateAdmin(req: Request, res: Response) {
 // DELETE /api/admins/:id
 export async function deleteAdmin(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const admin = await Admin.findOneAndDelete({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { adminId: id }],
     });

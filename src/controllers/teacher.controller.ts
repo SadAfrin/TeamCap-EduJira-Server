@@ -34,7 +34,7 @@ export async function getAllTeachers(req: Request, res: Response) {
 // GET /api/teachers/:id
 export async function getTeacherById(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const teacher = await Teacher.findOne({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { teacherId: id }, { email: id }],
     });
@@ -91,7 +91,7 @@ export async function createTeacher(req: Request, res: Response) {
 // PUT /api/teachers/:id
 export async function updateTeacher(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const teacher = await Teacher.findOneAndUpdate(
@@ -113,7 +113,7 @@ export async function updateTeacher(req: Request, res: Response) {
 // DELETE /api/teachers/:id
 export async function deleteTeacher(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const teacher = await Teacher.findOneAndDelete({
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { teacherId: id }],
     });
