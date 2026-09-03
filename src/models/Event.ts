@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema, model } from "mongoose";
+import mongoose, { Document, Schema, model, models } from "mongoose";
 
 export interface IEvent extends Document {
   title: string;
@@ -43,4 +43,5 @@ EventSchema.index({ startDate: 1, endDate: 1 });
 EventSchema.index({ category: 1 });
 EventSchema.index({ courseCode: 1 });
 
-export const Event = model<IEvent>("Event", EventSchema);
+export const Event = models.Event || model<IEvent>("Event", EventSchema);
+export default Event;

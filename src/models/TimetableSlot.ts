@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema, model } from "mongoose";
+import mongoose, { Document, Schema, model, models } from "mongoose";
 
 export type DayOfWeek =
   | "Monday"
@@ -93,7 +93,7 @@ TimetableSlotSchema.index({ teacherName: 1, dayOfWeek: 1 });
 TimetableSlotSchema.index({ teacherId: 1, dayOfWeek: 1 });
 TimetableSlotSchema.index({ room: 1, dayOfWeek: 1 });
 
-export const TimetableSlot = model<ITimetableSlot>(
-  "TimetableSlot",
-  TimetableSlotSchema
-);
+export const TimetableSlot =
+  models.TimetableSlot ||
+  model<ITimetableSlot>("TimetableSlot", TimetableSlotSchema);
+export default TimetableSlot;

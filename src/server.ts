@@ -1,32 +1,34 @@
-import dotenv from "dotenv";
-import mongoose from "mongoose";
-import dns from "dns";
-import app from "./app";
-
-// Load environment variables
-dotenv.config();
-
-// Fix for Node.js DNS resolution order on Windows
-dns.setDefaultResultOrder("ipv4first");
-
-const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-  console.error("MONGODB_URI is not defined in environment variables");
-  process.exit(1);
+import * as dns from "node:dns";
+try {
+  dns.setServers(["8.8.8.8", "8.8.4.4"]);
+  dns.setDefaultResultOrder?.("ipv4first");
+} catch {
+  // Ignore if DNS server configuration is restricted
 }
 
-// Connect to MongoDB
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => {
-    console.log("Connected to MongoDB successfully");
+import dotenv from "dotenv";
+dotenv.config();
+import app from "./app";
+import connectDB from "./config/db";
+
+const PORT = process.env.PORT || 5000;
+
+async function startServer() {
+  try {
+    await connectDB();
     app.listen(PORT, () => {
       console.log(`EduJira Server is running on port ${PORT}`);
     });
-  })
-  .catch((error) => {
-    console.error("MongoDB connection error:", error);
-    process.exit(1);
-  });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+  }
+}
+
+// Only run the traditional listener locally — Vercel handles invocation itself
+if (!process.env.VERCEL) {
+  startServer();
+} else {
+  connectDB(); // still connect to DB on Vercel, just don't call .listen()
+}
+
+export default app;
