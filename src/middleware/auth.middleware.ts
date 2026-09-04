@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from "express";
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "../lib/auth";
 
 export type Role = "admin" | "teacher" | "student" | "parent";
 
@@ -17,28 +19,35 @@ declare global {
 }
 
 /**
- * Middleware to extract user from session/JWT and attach to req.user
- * Assumes Better Auth session is available in request (cookie or header)
- * Note: In production, integrate with your actual auth provider
+ * Extract Better Auth session from cookies (or Authorization) and attach req.user.
+ * Safe to mount globally — does not reject unauthenticated requests by itself.
  */
 export async function extractUser(req: Request, res: Response, next: NextFunction) {
   try {
-    // TODO: Extract user from Better Auth session
-    // For now, we assume the session is available in the request context
-    // In a real implementation, you'd check cookies or Bearer tokens
-    
-    // Placeholder: you'll populate this from your auth system
-    // req.user = { id: "...", email: "...", role: "teacher", ... }
-    
-    next();
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    if (session?.user) {
+      const role = ((session.user as { role?: string }).role || "student") as Role;
+      req.user = {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name || "",
+        role,
+        image: session.user.image || undefined,
+      };
+    }
   } catch (error) {
-    res.status(401).json({ success: false, error: "Unauthorized" });
+    console.error("extractUser session error:", error);
   }
+
+  next();
 }
 
 /**
  * Middleware to require specific roles
- * Usage: router.post("/leave", requireRole(["parent", "student"]), createLeaveRequest)
+ * Usage: router.post("/leave", requireRole(["parent"]), createLeaveRequest)
  */
 export function requireRole(allowedRoles: Role[]) {
   return (req: Request, res: Response, next: NextFunction) => {

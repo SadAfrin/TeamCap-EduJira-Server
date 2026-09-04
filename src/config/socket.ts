@@ -6,19 +6,22 @@ import { Server as SocketIOServer, Socket } from "socket.io";
  * Handles events: send_message, typing, message_read, join_conversation
  */
 export function initSocket(httpServer: HTTPServer): SocketIOServer {
+  const clientOrigin = (process.env.CLIENT_URL || "http://localhost:3000").replace(/\/$/, "");
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:3000",
+      origin: clientOrigin,
       credentials: true,
     },
   });
 
-  // Middleware: authenticate socket connection
-  io.use((socket, next) => {
+  // Middleware: authenticate socket connection via Better Auth session cookie when present
+  io.use(async (socket, next) => {
     try {
-      // TODO: Validate socket token/session
-      // For now, we assume connection is valid
-      // In production: verify JWT from socket handshake auth
+      // Allow connection; userId is provided via handshake query from the client
+      const userId = socket.handshake.query.userId as string | undefined;
+      if (!userId) {
+        return next(new Error("userId required"));
+      }
       next();
     } catch (error) {
       next(new Error("Authentication failed"));

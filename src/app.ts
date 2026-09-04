@@ -17,6 +17,7 @@ import timetableRoutes from "./routes/timetable.routes";
 import leaveRoutes from "./routes/leave.routes";
 import messageRoutes from "./routes/message.routes";
 import uploadRoutes from "./routes/upload.routes";
+import { extractUser } from "./middleware/auth.middleware";
 
 const app: Application = express();
 
@@ -28,6 +29,7 @@ app.use(corsMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(extractUser);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));

@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import Conversation from "../models/Conversation.model";
 import Message from "../models/Message.model";
 import { sendNewMessageEmail } from "../services/notificationService";
+import { findAuthUserById } from "../lib/auth";
+import { createOnlineChecker } from "../config/socket";
 
 /**
  * POST /api/messages/conversation/start
@@ -172,7 +174,7 @@ export async function sendMessage(req: Request, res: Response) {
     }
 
     // Get recipient (the other participant)
-    const recipientId = conversation.participants.find((p) => p !== senderId);
+    const recipientId = conversation.participants.find((p: string) => p !== senderId);
 
     // Create message
     const message = new Message({
@@ -193,6 +195,7 @@ export async function sendMessage(req: Request, res: Response) {
 
     // Emit via Socket.io if recipient is online
     const io = (global as any).io;
+    let recipientOnline = false;
     if (io) {
       io.to(`conversation:${conversationId}`).emit("new_message", {
         messageId: message._id,
@@ -204,10 +207,28 @@ export async function sendMessage(req: Request, res: Response) {
         createdAt: message.createdAt,
         isRead: false,
       });
+      recipientOnline = createOnlineChecker(io)(recipientId!);
     }
 
-    // TODO: Send email to recipient if offline
-    // sendNewMessageEmail(recipientEmail, senderName, content, conversationUrl);
+    if (!recipientOnline && recipientId) {
+      try {
+        const recipient = await findAuthUserById(recipientId);
+        if (recipient?.email) {
+          const clientUrl = (process.env.CLIENT_URL || "http://localhost:3000").replace(
+            /\/$/,
+            ""
+          );
+          await sendNewMessageEmail(
+            String(recipient.email),
+            senderName || "Someone",
+            content,
+            `${clientUrl}/messages/${conversationId}`
+          );
+        }
+      } catch (emailError) {
+        console.error("Failed to send offline message email:", emailError);
+      }
+    }
 
     res.status(201).json({
       success: true,

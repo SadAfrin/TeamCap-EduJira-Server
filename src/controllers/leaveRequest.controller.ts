@@ -1,7 +1,31 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import LeaveRequest from "../models/LeaveRequest.model";
 import Student from "../models/Student.model";
-import { sendLeaveStatusEmail, sendLeaveSubmittedEmail } from "../services/notificationService";
+import Parent from "../models/Parent.model";
+import Admin from "../models/Admin.model";
+import Teacher from "../models/Teacher.model";
+import {
+  sendLeaveStatusEmail,
+  sendLeaveSubmittedEmail,
+} from "../services/notificationService";
+import { findAuthUserById } from "../lib/auth";
+
+async function resolveStudent(studentId: string) {
+  if (mongoose.Types.ObjectId.isValid(studentId)) {
+    const byId = await Student.findById(studentId);
+    if (byId) return byId;
+  }
+  return Student.findOne({ studentId });
+}
+
+async function safeEmail(fn: () => Promise<void>) {
+  try {
+    await fn();
+  } catch (error) {
+    console.error("Notification email failed:", error);
+  }
+}
 
 /**
  * POST /api/leave
@@ -12,33 +36,29 @@ export async function createLeaveRequest(req: Request, res: Response) {
     const { studentId, startDate, endDate, reason, documentUrl } = req.body;
     const parentId = req.user?.id;
 
-    // Validation
     if (!studentId || !startDate || !endDate || !reason) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Missing required fields: studentId, startDate, endDate, reason" 
+      return res.status(400).json({
+        success: false,
+        error: "Missing required fields: studentId, startDate, endDate, reason",
       });
     }
 
-    // Validate date range
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (start > end) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Start date must be before end date" 
+      return res.status(400).json({
+        success: false,
+        error: "Start date must be before end date",
       });
     }
 
-    // Verify student exists
-    const student = await Student.findById(studentId);
+    const student = await resolveStudent(studentId);
     if (!student) {
       return res.status(404).json({ success: false, error: "Student not found" });
     }
 
-    // Create leave request
     const leaveRequest = new LeaveRequest({
-      studentId,
+      studentId: student._id,
       parentId,
       startDate,
       endDate,
@@ -49,8 +69,34 @@ export async function createLeaveRequest(req: Request, res: Response) {
 
     await leaveRequest.save();
 
-    // TODO: Send email to teacher
-    // sendLeaveSubmittedEmail(teacherEmail, student.name, req.user?.name, reason, startDate, endDate, reviewUrl);
+    const clientUrl = (process.env.CLIENT_URL || "http://localhost:3000").replace(/\/$/, "");
+    const reviewUrl = `${clientUrl}/teacher/leave-requests`;
+    const parentName = req.user?.name || "Parent";
+
+    const [admins, teachers] = await Promise.all([
+      Admin.find({ status: { $ne: "Inactive" } }).limit(10),
+      Teacher.find({ status: { $ne: "Resigned" } }).limit(10),
+    ]);
+
+    const notifyEmails = new Set<string>();
+    admins.forEach((a: { email?: string }) => a.email && notifyEmails.add(a.email));
+    teachers.forEach((t: { email?: string }) => t.email && notifyEmails.add(t.email));
+
+    await Promise.all(
+      [...notifyEmails].map((email) =>
+        safeEmail(() =>
+          sendLeaveSubmittedEmail(
+            email,
+            student.name,
+            parentName,
+            reason,
+            startDate,
+            endDate,
+            reviewUrl
+          )
+        )
+      )
+    );
 
     res.status(201).json({
       success: true,
@@ -69,9 +115,6 @@ export async function createLeaveRequest(req: Request, res: Response) {
 /**
  * GET /api/leave
  * List leave requests based on user role
- * - Parent: sees own child's requests
- * - Teacher: sees all students' requests (in their classes)
- * - Admin: sees all requests
  */
 export async function listLeaveRequests(req: Request, res: Response) {
   try {
@@ -79,19 +122,16 @@ export async function listLeaveRequests(req: Request, res: Response) {
     const userRole = req.user?.role;
     const userId = req.user?.id;
 
-    let filter: any = {};
+    const filter: Record<string, unknown> = {};
 
-    // Role-based filtering
     if (userRole === "parent") {
       filter.parentId = userId;
     } else if (userRole === "teacher") {
-      // TODO: Filter by students in teacher's classes
-      // For now, allow teachers to see all requests
+      // Teachers see pending/reviewed requests (class filter can be added later)
     } else if (userRole !== "admin") {
       return res.status(403).json({ success: false, error: "Access denied" });
     }
 
-    // Apply additional filters
     if (studentId) filter.studentId = studentId;
     if (status) filter.status = status;
 
@@ -112,7 +152,6 @@ export async function listLeaveRequests(req: Request, res: Response) {
 
 /**
  * GET /api/leave/:id
- * Fetch a single leave request
  */
 export async function getLeaveRequest(req: Request, res: Response) {
   try {
@@ -126,7 +165,6 @@ export async function getLeaveRequest(req: Request, res: Response) {
       return res.status(404).json({ success: false, error: "Leave request not found" });
     }
 
-    // Check authorization (only participants can view)
     const userRole = req.user?.role;
     const userId = req.user?.id;
     if (userRole === "parent" && request.parentId !== userId) {
@@ -152,21 +190,23 @@ export async function reviewLeaveRequest(req: Request, res: Response) {
     const { id } = req.params;
     const { status, comments } = req.body;
     const teacherId = req.user?.id;
-    const teacherName = req.user?.name;
+    const teacherName = req.user?.name || "Teacher";
 
     if (!["approved", "rejected"].includes(status)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Status must be 'approved' or 'rejected'" 
+      return res.status(400).json({
+        success: false,
+        error: "Status must be 'approved' or 'rejected'",
       });
     }
 
-    const request = await LeaveRequest.findById(id);
+    const request = await LeaveRequest.findById(id).populate(
+      "studentId",
+      "name studentId className section"
+    );
     if (!request) {
       return res.status(404).json({ success: false, error: "Leave request not found" });
     }
 
-    // Update with teacher review
     request.teacherReview = {
       reviewedBy: teacherId,
       reviewedAt: new Date(),
@@ -177,8 +217,58 @@ export async function reviewLeaveRequest(req: Request, res: Response) {
 
     await request.save();
 
-    // TODO: Send email to parent
-    // sendLeaveStatusEmail(parentEmail, parentName, studentName, status, teacherName, comments);
+    const leaveStatus = request.status as
+      | "teacher_approved"
+      | "teacher_rejected"
+      | "admin_approved"
+      | "admin_rejected";
+
+    const parentAuthUser = await findAuthUserById(request.parentId);
+    const parentRecord = parentAuthUser?.email
+      ? await Parent.findOne({ email: String(parentAuthUser.email).toLowerCase() })
+      : null;
+    const parentEmail = parentAuthUser?.email || parentRecord?.email;
+    const parentName =
+      (parentAuthUser as { name?: string } | null)?.name || parentRecord?.name || "Parent";
+    const studentName =
+      (request.studentId as { name?: string })?.name || "your child";
+
+    if (parentEmail) {
+      await safeEmail(() =>
+        sendLeaveStatusEmail(
+          String(parentEmail),
+          parentName,
+          studentName,
+          leaveStatus,
+          teacherName,
+          comments
+        )
+      );
+    }
+
+    // Notify admins when teacher approves (ready for final decision)
+    if (status === "approved") {
+      const clientUrl = (process.env.CLIENT_URL || "http://localhost:3000").replace(/\/$/, "");
+      const reviewUrl = `${clientUrl}/admin/leave-requests`;
+      const admins = await Admin.find({ status: { $ne: "Inactive" } }).limit(10);
+      await Promise.all(
+        admins.map((admin: { email?: string }) =>
+          admin.email
+            ? safeEmail(() =>
+                sendLeaveSubmittedEmail(
+                  admin.email!,
+                  studentName,
+                  parentName,
+                  request.reason,
+                  request.startDate,
+                  request.endDate,
+                  reviewUrl
+                )
+              )
+            : Promise.resolve()
+        )
+      );
+    }
 
     res.json({
       success: true,
@@ -196,36 +286,37 @@ export async function reviewLeaveRequest(req: Request, res: Response) {
 
 /**
  * POST /api/leave/:id/approve
- * Admin makes final approval/rejection of teacher-reviewed request
+ * Admin makes final approval/rejection
  */
 export async function approveLeaveRequest(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const { status, comments } = req.body;
     const adminId = req.user?.id;
-    const adminName = req.user?.name;
+    const adminName = req.user?.name || "Administrator";
 
     if (!["approved", "rejected"].includes(status)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Status must be 'approved' or 'rejected'" 
+      return res.status(400).json({
+        success: false,
+        error: "Status must be 'approved' or 'rejected'",
       });
     }
 
-    const request = await LeaveRequest.findById(id);
+    const request = await LeaveRequest.findById(id).populate(
+      "studentId",
+      "name studentId className section"
+    );
     if (!request) {
       return res.status(404).json({ success: false, error: "Leave request not found" });
     }
 
-    // Verify it was teacher-reviewed first
     if (!request.teacherReview || !request.teacherReview.status) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Request must be reviewed by teacher first" 
+      return res.status(400).json({
+        success: false,
+        error: "Request must be reviewed by teacher first",
       });
     }
 
-    // Update with admin review
     request.adminReview = {
       reviewedBy: adminId,
       reviewedAt: new Date(),
@@ -236,8 +327,30 @@ export async function approveLeaveRequest(req: Request, res: Response) {
 
     await request.save();
 
-    // TODO: Send email to parent with final status
-    // sendLeaveStatusEmail(parentEmail, parentName, studentName, request.status, adminName, comments);
+    const leaveStatus = request.status as
+      | "teacher_approved"
+      | "teacher_rejected"
+      | "admin_approved"
+      | "admin_rejected";
+
+    const parentAuthUser = await findAuthUserById(request.parentId);
+    const parentEmail = parentAuthUser?.email;
+    const parentName = (parentAuthUser as { name?: string } | null)?.name || "Parent";
+    const studentName =
+      (request.studentId as { name?: string })?.name || "your child";
+
+    if (parentEmail) {
+      await safeEmail(() =>
+        sendLeaveStatusEmail(
+          String(parentEmail),
+          parentName,
+          studentName,
+          leaveStatus,
+          adminName,
+          comments
+        )
+      );
+    }
 
     res.json({
       success: true,
@@ -255,7 +368,6 @@ export async function approveLeaveRequest(req: Request, res: Response) {
 
 /**
  * DELETE /api/leave/:id
- * Cancel/delete a leave request (only if status is "submitted")
  */
 export async function cancelLeaveRequest(req: Request, res: Response) {
   try {
@@ -268,15 +380,14 @@ export async function cancelLeaveRequest(req: Request, res: Response) {
       return res.status(404).json({ success: false, error: "Leave request not found" });
     }
 
-    // Only parent can cancel their own submitted request, or admin can cancel any
     if (userRole === "parent" && request.parentId !== userId) {
       return res.status(403).json({ success: false, error: "Access denied" });
     }
 
     if (request.status !== "submitted") {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Can only cancel requests with 'submitted' status" 
+      return res.status(400).json({
+        success: false,
+        error: "Can only cancel requests with 'submitted' status",
       });
     }
 
