@@ -21,10 +21,18 @@ import statsRoutes from "./routes/stats.routes";
 
 const app = express();
 
-connectDB();
-
 app.use(corsMiddleware);
 app.use(express.json());
+
+// Ensure database connection for serverless function invocations
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error("DB connection error in middleware:", err);
+  }
+  next();
+});
 
 // API Routes
 app.use("/api/students", studentRoutes);
