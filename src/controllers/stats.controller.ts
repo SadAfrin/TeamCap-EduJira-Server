@@ -101,31 +101,45 @@ export async function getTeacherPortalStats(req: Request, res: Response) {
 // GET /api/stats/student-portal - Stats for logged-in student
 export async function getStudentPortalStats(req: Request, res: Response) {
   try {
-    const { email, studentId } = req.query;
+    const { email, studentId, name } = req.query;
     let student = null;
 
     if (studentId) {
       student = await Student.findOne({ studentId });
     } else if (email) {
-      student = await Student.findOne({ email: String(email).toLowerCase() });
+      student = await Student.findOne({ email: new RegExp(`^${String(email).trim()}$`, "i") });
     }
 
-    if (!student) {
-      student = await Student.findOne(); // fallback first student
+    if (!student && email) {
+      // If student not found by email, check by name
+      if (name) {
+        student = await Student.findOne({ name: new RegExp(`^${String(name).trim()}$`, "i") });
+      }
     }
+
+    const effectiveStudentId = student?.studentId || "STD-801";
+    const effectiveClass = student?.className || "Class 8";
 
     const [subjects, attendances] = await Promise.all([
-      Subject.find({ className: student?.className || "Class 8" }),
-      Attendance.find({ studentId: student?.studentId }).sort({ date: -1 }).limit(30),
+      Subject.find({ className: effectiveClass }),
+      Attendance.find({ studentId: effectiveStudentId }).sort({ date: -1 }).limit(30),
     ]);
 
     const presentCount = attendances.filter((a) => a.status === "Present" || a.status === "present").length;
-    const attendancePercentage = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 92;
+    const attendancePercentage = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
 
     return res.json({
       success: true,
       data: {
-        student,
+        student: student || {
+          studentId: "STD-801",
+          name: name || "Student",
+          email: email || "",
+          className: "Class 8",
+          section: "B",
+          roll: "01",
+          status: "approved",
+        },
         subjects,
         attendances,
         attendancePercentage,
