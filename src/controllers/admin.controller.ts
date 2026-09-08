@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import Admin from "../models/Admin.model";
+import { buildIdOrCustomQuery } from "../lib/idHelper";
 
 // GET /api/admins
 export async function getAllAdmins(req: Request, res: Response) {
@@ -31,9 +32,7 @@ export async function getAllAdmins(req: Request, res: Response) {
 export async function getAdminById(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const admin = await Admin.findOne({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { adminId: id }, { email: id }],
-    });
+    const admin = await Admin.findOne(buildIdOrCustomQuery(id, "adminId"));
 
     if (!admin) {
       return res.status(404).json({ success: false, message: "Admin not found" });
@@ -87,7 +86,7 @@ export async function updateAdmin(req: Request, res: Response) {
     const updateData = req.body;
 
     const admin = await Admin.findOneAndUpdate(
-      { $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { adminId: id }] },
+      buildIdOrCustomQuery(id, "adminId"),
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -106,9 +105,7 @@ export async function updateAdmin(req: Request, res: Response) {
 export async function deleteAdmin(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const admin = await Admin.findOneAndDelete({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { adminId: id }],
-    });
+    const admin = await Admin.findOneAndDelete(buildIdOrCustomQuery(id, "adminId"));
 
     if (!admin) {
       return res.status(404).json({ success: false, message: "Admin not found" });

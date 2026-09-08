@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import Teacher from "../models/Teacher.model";
+import { buildIdOrCustomQuery } from "../lib/idHelper";
 
 // GET /api/teachers
 export async function getAllTeachers(req: Request, res: Response) {
@@ -11,7 +12,7 @@ export async function getAllTeachers(req: Request, res: Response) {
       filter.status = status;
     }
     if (subject && subject !== "All") {
-      filter.subjectsAssigned = subject;
+      filter.subject = subject;
     }
     if (search) {
       const searchRegex = new RegExp(String(search), "i");
@@ -19,8 +20,8 @@ export async function getAllTeachers(req: Request, res: Response) {
         { name: searchRegex },
         { teacherId: searchRegex },
         { email: searchRegex },
+        { subject: searchRegex },
         { designation: searchRegex },
-        { qualification: searchRegex },
       ];
     }
 
@@ -35,9 +36,7 @@ export async function getAllTeachers(req: Request, res: Response) {
 export async function getTeacherById(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const teacher = await Teacher.findOne({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { teacherId: id }, { email: id }],
-    });
+    const teacher = await Teacher.findOne(buildIdOrCustomQuery(id, "teacherId"));
 
     if (!teacher) {
       return res.status(404).json({ success: false, message: "Teacher not found" });
@@ -52,10 +51,24 @@ export async function getTeacherById(req: Request, res: Response) {
 // POST /api/teachers
 export async function createTeacher(req: Request, res: Response) {
   try {
-    const { teacherId, name, email, phone, designation, qualification, gender, subjectsAssigned, classesAssigned, joiningDate, status } = req.body;
+    const {
+      teacherId,
+      name,
+      email,
+      phone,
+      subject,
+      designation,
+      classes,
+      qualification,
+      joiningDate,
+      gender,
+      bloodGroup,
+      address,
+      status,
+    } = req.body;
 
-    if (!teacherId || !name || !email) {
-      return res.status(400).json({ success: false, message: "Teacher ID, Name, and Email are required" });
+    if (!teacherId || !name || !email || !subject) {
+      return res.status(400).json({ success: false, message: "Teacher ID, Name, Email, and Subject are required" });
     }
 
     const existingId = await Teacher.findOne({ teacherId });
@@ -65,7 +78,7 @@ export async function createTeacher(req: Request, res: Response) {
 
     const existingEmail = await Teacher.findOne({ email });
     if (existingEmail) {
-      return res.status(409).json({ success: false, message: `Email "${email}" is already in use by another teacher` });
+      return res.status(409).json({ success: false, message: `Email "${email}" is already registered` });
     }
 
     const teacher = await Teacher.create({
@@ -73,12 +86,14 @@ export async function createTeacher(req: Request, res: Response) {
       name,
       email,
       phone: phone || "",
+      subject,
       designation: designation || "Assistant Teacher",
+      classes: Array.isArray(classes) ? classes : [],
       qualification: qualification || "",
+      joiningDate: joiningDate || "",
       gender: gender || "Male",
-      subjectsAssigned: Array.isArray(subjectsAssigned) ? subjectsAssigned : [],
-      classesAssigned: Array.isArray(classesAssigned) ? classesAssigned : [],
-      joiningDate: joiningDate || new Date().toISOString().split("T")[0],
+      bloodGroup: bloodGroup || "",
+      address: address || "",
       status: status || "Active",
     });
 
@@ -95,7 +110,7 @@ export async function updateTeacher(req: Request, res: Response) {
     const updateData = req.body;
 
     const teacher = await Teacher.findOneAndUpdate(
-      { $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { teacherId: id }] },
+      buildIdOrCustomQuery(id, "teacherId"),
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -114,9 +129,7 @@ export async function updateTeacher(req: Request, res: Response) {
 export async function deleteTeacher(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const teacher = await Teacher.findOneAndDelete({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { teacherId: id }],
-    });
+    const teacher = await Teacher.findOneAndDelete(buildIdOrCustomQuery(id, "teacherId"));
 
     if (!teacher) {
       return res.status(404).json({ success: false, message: "Teacher not found" });

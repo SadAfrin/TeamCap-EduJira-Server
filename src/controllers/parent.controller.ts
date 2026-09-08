@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Parent from "../models/Parent.model";
 import Student from "../models/Student.model";
+import { buildIdOrCustomQuery } from "../lib/idHelper";
 
 // GET /api/parents
 export async function getAllParents(req: Request, res: Response) {
@@ -18,8 +19,7 @@ export async function getAllParents(req: Request, res: Response) {
         { parentId: searchRegex },
         { email: searchRegex },
         { phone: searchRegex },
-        { "children.studentName": searchRegex },
-        { "children.studentId": searchRegex },
+        { occupation: searchRegex },
       ];
     }
 
@@ -34,9 +34,7 @@ export async function getAllParents(req: Request, res: Response) {
 export async function getParentById(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const parent = await Parent.findOne({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { parentId: id }, { email: id }],
-    });
+    const parent = await Parent.findOne(buildIdOrCustomQuery(id, "parentId"));
 
     if (!parent) {
       return res.status(404).json({ success: false, message: "Parent not found" });
@@ -51,7 +49,18 @@ export async function getParentById(req: Request, res: Response) {
 // POST /api/parents
 export async function createParent(req: Request, res: Response) {
   try {
-    const { parentId, name, email, phone, occupation, address, children, status } = req.body;
+    const {
+      parentId,
+      name,
+      email,
+      phone,
+      relation,
+      occupation,
+      children,
+      address,
+      preferredLanguage,
+      status,
+    } = req.body;
 
     if (!parentId || !name || !email) {
       return res.status(400).json({ success: false, message: "Parent ID, Name, and Email are required" });
@@ -62,14 +71,21 @@ export async function createParent(req: Request, res: Response) {
       return res.status(409).json({ success: false, message: `Parent ID "${parentId}" already exists` });
     }
 
+    const existingEmail = await Parent.findOne({ email });
+    if (existingEmail) {
+      return res.status(409).json({ success: false, message: `Email "${email}" is already registered` });
+    }
+
     const parent = await Parent.create({
       parentId,
       name,
       email,
       phone: phone || "",
+      relation: relation || "Father",
       occupation: occupation || "",
-      address: address || "",
       children: Array.isArray(children) ? children : [],
+      address: address || "",
+      preferredLanguage: preferredLanguage || "en",
       status: status || "Active",
     });
 
@@ -86,7 +102,7 @@ export async function updateParent(req: Request, res: Response) {
     const updateData = req.body;
 
     const parent = await Parent.findOneAndUpdate(
-      { $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { parentId: id }] },
+      buildIdOrCustomQuery(id, "parentId"),
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -105,9 +121,7 @@ export async function updateParent(req: Request, res: Response) {
 export async function deleteParent(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const parent = await Parent.findOneAndDelete({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { parentId: id }],
-    });
+    const parent = await Parent.findOneAndDelete(buildIdOrCustomQuery(id, "parentId"));
 
     if (!parent) {
       return res.status(404).json({ success: false, message: "Parent not found" });
@@ -119,49 +133,71 @@ export async function deleteParent(req: Request, res: Response) {
   }
 }
 
-// POST /api/parents/:id/link-child - Link a student to a parent
+// POST /api/parents/:id/link-child - Link child to parent
 export async function linkChildToParent(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { studentId, relationship } = req.body;
+    const { studentId, studentName } = req.body;
 
-    const student = await Student.findOne({ studentId });
-    if (!student) {
-      return res.status(404).json({ success: false, message: `Student with ID "${studentId}" not found` });
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: "studentId is required" });
     }
 
-    const parent = await Parent.findOne({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { parentId: id }],
-    });
+    const student = await Student.findOne({ studentId });
+    const parent = await Parent.findOneAndUpdate(
+      buildIdOrCustomQuery(id, "parentId"),
+      {
+        $addToSet: {
+          children: {
+            studentId,
+            studentName: studentName || student?.name || "Child",
+            className: student?.className || "",
+            section: student?.section || "",
+          },
+        },
+      },
+      { new: true }
+    );
 
     if (!parent) {
       return res.status(404).json({ success: false, message: "Parent not found" });
     }
 
-    // Check if already linked
-    const alreadyLinked = parent.children.some((c: any) => c.studentId === studentId);
-    if (alreadyLinked) {
-      return res.status(400).json({ success: false, message: "This student is already linked to this parent" });
+    if (student) {
+      student.parentEmail = parent.email;
+      student.parentName = parent.name;
+      student.parentPhone = parent.phone;
+      await student.save();
     }
 
-    parent.children.push({
-      studentId: student.studentId,
-      studentName: student.name,
-      className: student.className,
-      section: student.section,
-      relationship: relationship || "Guardian",
-    });
-
-    await parent.save();
-
-    // Also update parentName in student record
-    student.parentName = parent.name;
-    student.parentEmail = parent.email;
-    student.parentPhone = parent.phone;
-    await student.save();
-
-    return res.json({ success: true, message: "Child linked successfully", data: parent });
+    return res.json({ success: true, message: "Child linked to parent successfully", data: parent });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message || "Failed to link child" });
+  }
+}
+
+// GET /api/parents/children/:email - Get children for a parent
+export async function getParentChildren(req: Request, res: Response) {
+  try {
+    const { email } = req.params;
+    const parent = await Parent.findOne({ email: String(email) });
+
+    let children = [];
+    if (parent && parent.children && parent.children.length > 0) {
+      const childNamesOrIds = parent.children.map((c: any) => c.studentName || c.studentId || c);
+      children = await Student.find({
+        $or: [
+          { name: { $in: childNamesOrIds } },
+          { studentId: { $in: childNamesOrIds } },
+          { parentEmail: String(email) },
+        ],
+      });
+    } else {
+      children = await Student.find({ parentEmail: String(email) });
+    }
+
+    return res.json({ success: true, data: children, count: children.length });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message || "Failed to fetch children" });
   }
 }

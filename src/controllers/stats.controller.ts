@@ -37,7 +37,7 @@ export async function getOverviewStats(req: Request, res: Response) {
       Teacher.find().sort({ createdAt: -1 }).limit(5),
     ]);
 
-    const presentToday = todayAttendances.filter((a) => a.status === "Present").length;
+    const presentToday = todayAttendances.filter((a) => a.status === "Present" || a.status === "present").length;
     const totalMarkedToday = todayAttendances.length;
     const attendanceRate = totalMarkedToday > 0 ? Math.round((presentToday / totalMarkedToday) * 100) : 94; // fallback positive baseline
 
@@ -52,7 +52,7 @@ export async function getOverviewStats(req: Request, res: Response) {
         attendanceRate,
         presentToday,
         totalMarkedToday,
-        classBreakdown: classBreakdown.map((c) => ({ className: c._id, count: c.count })),
+        classBreakdown: classBreakdown.map((c: any) => ({ className: c._id || "Unassigned", count: c.count })),
         recentStudents,
         recentTeachers,
       },
@@ -75,8 +75,8 @@ export async function getTeacherPortalStats(req: Request, res: Response) {
       teacher = await Teacher.findOne(); // default first teacher as fallback
     }
 
-    const assignedClasses = teacher?.classesAssigned || ["Class 8-A", "Class 8-B", "Class 9-A"];
-    const classNames = Array.from(new Set(assignedClasses.map((c) => c.split("-")[0])));
+    const assignedClasses: string[] = teacher?.classes || ["Class 8-A", "Class 8-B", "Class 9-A"];
+    const classNames = Array.from(new Set(assignedClasses.map((c: string) => c.split("-")[0])));
 
     const [students, subjects] = await Promise.all([
       Student.find({ className: { $in: classNames } }).limit(20),
@@ -119,7 +119,7 @@ export async function getStudentPortalStats(req: Request, res: Response) {
       Attendance.find({ studentId: student?.studentId }).sort({ date: -1 }).limit(30),
     ]);
 
-    const presentCount = attendances.filter((a) => a.status === "Present").length;
+    const presentCount = attendances.filter((a) => a.status === "Present" || a.status === "present").length;
     const attendancePercentage = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 92;
 
     return res.json({
@@ -154,8 +154,10 @@ export async function getParentPortalStats(req: Request, res: Response) {
     }
 
     // Fetch live student objects for each child
-    const childrenIds = parent?.children?.map((c) => c.studentId) || [];
-    const childrenDetails = await Student.find({ studentId: { $in: childrenIds } });
+    const childrenIds = parent?.children?.map((c: any) => c.studentId || c) || [];
+    const childrenDetails = await Student.find({
+      $or: [{ studentId: { $in: childrenIds } }, { parentEmail: parent?.email || "" }],
+    });
 
     return res.json({
       success: true,
