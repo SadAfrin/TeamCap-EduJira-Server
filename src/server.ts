@@ -1,6 +1,12 @@
-import * as dns from 'node:dns';
-dns.setServers(['8.8.8.8', '8.8.4.4']);
-import dotenv from 'dotenv';
+import * as dns from "node:dns";
+try {
+  dns.setServers(["8.8.8.8", "8.8.4.4"]);
+  dns.setDefaultResultOrder?.("ipv4first");
+} catch {
+  // Ignore if DNS server configuration is restricted
+}
+
+import dotenv from "dotenv";
 dotenv.config();
 import http from 'http';
 import app from './app';
@@ -19,7 +25,7 @@ async function startServer() {
       console.log(`EduJira Server + Socket.io running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error("Failed to start server:", error);
   }
 }
 

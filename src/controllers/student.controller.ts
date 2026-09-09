@@ -342,7 +342,7 @@ export async function createStudent(req: Request, res: Response) {
 // PUT /api/students/:id - Update student
 export async function updateStudent(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const student = await Student.findOneAndUpdate(

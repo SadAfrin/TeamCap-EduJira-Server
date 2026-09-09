@@ -81,7 +81,7 @@ export async function createSubject(req: Request, res: Response) {
 // PUT /api/subjects/:id
 export async function updateSubject(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const subject = await Subject.findOneAndUpdate(

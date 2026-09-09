@@ -82,7 +82,7 @@ export async function createAdmin(req: Request, res: Response) {
 // PUT /api/admins/:id
 export async function updateAdmin(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const admin = await Admin.findOneAndUpdate(

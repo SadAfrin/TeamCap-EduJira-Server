@@ -115,7 +115,7 @@ export async function createClass(req: Request, res: Response) {
 // PUT /api/classes/:id
 export async function updateClass(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const updateData = req.body;
 
     const classItem = await Class.findOneAndUpdate(

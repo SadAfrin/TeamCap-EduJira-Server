@@ -1,4 +1,5 @@
-import express from "express";
+import express, { Application, Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import { corsMiddleware } from "./config/cors";
 import connectDB from "./config/db";
 
@@ -18,11 +19,15 @@ import messageRoutes from "./routes/message.routes";
 import notificationRoutes from "./routes/notification.routes";
 import aiRoutes from "./routes/ai.routes";
 import statsRoutes from "./routes/stats.routes";
+import eventRoutes from "./routes/event.routes";
+import timetableRoutes from "./routes/timetable.routes";
 
-const app = express();
+const app: Application = express();
 
 app.use(corsMiddleware);
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Ensure database connection for serverless function invocations
 app.use(async (req, res, next) => {
@@ -75,6 +80,63 @@ app.get("/", (req, res) => {
       "/api/ai",
       "/api/stats",
     ],
+  });
+});
+
+// API Routes
+app.use("/api/students", studentRoutes);
+app.use("/api/teachers", teacherRoutes);
+app.use("/api/admins", adminRoutes);
+app.use("/api/parents", parentRoutes);
+app.use("/api/classes", classRoutes);
+app.use("/api/subjects", subjectRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/stats", statsRoutes);
+app.use("/api/calendar", eventRoutes);
+app.use("/api/events", eventRoutes); // Convenient alias
+app.use("/api/timetable", timetableRoutes);
+
+// Handle 404 Route Not Found
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    message: `API Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// Global Error Handler
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error("Unhandled Error:", err);
+
+  if (err.name === "ValidationError") {
+    res.status(400).json({
+      success: false,
+      message: "Database validation failed",
+      errors: Object.values(err.errors || {}).map((e: any) => e.message),
+    });
+    return;
+  }
+
+  if (err.name === "CastError") {
+    res.status(400).json({
+      success: false,
+      message: `Invalid ID format for path: ${err.path}`,
+    });
+    return;
+  }
+
+  if (err.code === 11000) {
+    res.status(400).json({
+      success: false,
+      message: "Duplicate key error: value already exists in database",
+      keyValue: err.keyValue,
+    });
+    return;
+  }
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
   });
 });
 
