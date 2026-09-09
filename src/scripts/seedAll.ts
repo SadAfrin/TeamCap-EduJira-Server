@@ -7,12 +7,19 @@ dotenv.config();
 import mongoose from "mongoose";
 import connectDB from "../config/db";
 import Class from "../models/Class.model";
+import Section from "../models/Section.model";
 import Subject from "../models/Subject.model";
 import Teacher from "../models/Teacher.model";
 import Admin from "../models/Admin.model";
 import Parent from "../models/Parent.model";
 import Student from "../models/Student.model";
 import Attendance from "../models/Attendance.model";
+import Result from "../models/Result.model";
+import Routine from "../models/Routine.model";
+import Notice from "../models/Notice.model";
+import Assignment from "../models/Assignment.model";
+import EarlyWarningFlag from "../models/EarlyWarningFlag.model";
+import LeaveApplication from "../models/LeaveApplication.model";
 
 const defaultClasses = [
   {
@@ -68,22 +75,11 @@ const defaultClasses = [
 ];
 
 const defaultSubjects = [
-  { subjectCode: "MATH-06", name: "Mathematics", className: "Class 6", type: "Core", credits: 4, teacherName: "Mohammad Rafiq", description: "Foundational arithmetic and geometry" },
-  { subjectCode: "ENG-06", name: "English", className: "Class 6", type: "Core", credits: 3, teacherName: "Farzana Yasmin", description: "Grammar and composition" },
-  { subjectCode: "SCI-06", name: "General Science", className: "Class 6", type: "Core", credits: 3, teacherName: "Dr. Anisur Rahman", description: "Introduction to nature and physical science" },
-
-  { subjectCode: "MATH-08", name: "Mathematics", className: "Class 8", type: "Core", credits: 4, teacherName: "Mohammad Rafiq", description: "Algebra, geometry and statistics" },
-  { subjectCode: "ENG-08", name: "English", className: "Class 8", type: "Core", credits: 3, teacherName: "Farzana Yasmin", description: "Literature and creative writing" },
-  { subjectCode: "SCI-08", name: "General Science", className: "Class 8", type: "Core", credits: 3, teacherName: "Dr. Anisur Rahman", description: "Physics, Chemistry and Life Sciences" },
-  { subjectCode: "ICT-08", name: "ICT", className: "Class 8", type: "Core", credits: 2, teacherName: "Tanvir Hasan", description: "Information and Communication Technology" },
-
-  { subjectCode: "PHY-09", name: "Physics", className: "Class 9", type: "Core", credits: 4, teacherName: "Dr. Anisur Rahman", description: "Mechanics, Heat, Waves, and Optics" },
-  { subjectCode: "CHEM-09", name: "Chemistry", className: "Class 9", type: "Core", credits: 4, teacherName: "Nasrin Sultana", description: "Inorganic & Physical Chemistry" },
-  { subjectCode: "HMATH-09", name: "Higher Math", className: "Class 9", type: "Elective", credits: 4, teacherName: "Mohammad Rafiq", description: "Trigonometry and Coordinate Geometry" },
-  { subjectCode: "BIO-09", name: "Biology", className: "Class 9", type: "Core", credits: 3, teacherName: "Kabir Hossain", description: "Cell biology and human anatomy" },
-
-  { subjectCode: "PHY-10", name: "Physics", className: "Class 10", type: "Core", credits: 4, teacherName: "Dr. Anisur Rahman", description: "Electricity, Modern Physics and Nuclear energy" },
-  { subjectCode: "CHEM-10", name: "Chemistry", className: "Class 10", type: "Core", credits: 4, teacherName: "Nasrin Sultana", description: "Organic Chemistry and Periodic Properties" },
+  { subjectCode: "MATH-08", name: "Mathematics", className: "Class 8", credits: 4, teacherName: "Mohammad Rafiq", teacherEmail: "mohammad.rafiq@edujira.edu", department: "Mathematics" },
+  { subjectCode: "ENG-08", name: "English", className: "Class 8", credits: 3, teacherName: "Farzana Yasmin", teacherEmail: "farzana.yasmin@edujira.edu", department: "Languages" },
+  { subjectCode: "SCI-08", name: "General Science", className: "Class 8", credits: 3, teacherName: "Dr. Anisur Rahman", teacherEmail: "anisur.rahman@edujira.edu", department: "Science" },
+  { subjectCode: "ICT-08", name: "ICT & Computing", className: "Class 8", credits: 2, teacherName: "Tanvir Hasan", teacherEmail: "tanvir.hasan@edujira.edu", department: "Technology" },
+  { subjectCode: "BGS-08", name: "Global Studies", className: "Class 8", credits: 3, teacherName: "Shamima Nasrin", teacherEmail: "shamima.admin@edujira.edu", department: "Humanities" },
 ];
 
 const defaultTeachers = [
@@ -95,8 +91,8 @@ const defaultTeachers = [
     designation: "Senior Science Teacher",
     qualification: "Ph.D in Applied Physics, DU",
     gender: "Male",
-    subjectsAssigned: ["General Science", "Physics"],
-    classesAssigned: ["Class 8-A", "Class 8-B", "Class 9-A", "Class 10-A"],
+    subject: "General Science",
+    classes: ["Class 8-A", "Class 8-B", "Class 9-A", "Class 10-A"],
     joiningDate: "2018-01-15",
     status: "Active",
   },
@@ -108,8 +104,8 @@ const defaultTeachers = [
     designation: "Head of English Department",
     qualification: "M.A in English Literature, JU",
     gender: "Female",
-    subjectsAssigned: ["English", "English Grammar"],
-    classesAssigned: ["Class 6-A", "Class 7-A", "Class 8-B"],
+    subject: "English",
+    classes: ["Class 6-A", "Class 7-A", "Class 8-B"],
     joiningDate: "2019-06-01",
     status: "Active",
   },
@@ -121,35 +117,9 @@ const defaultTeachers = [
     designation: "Assistant Professor - Mathematics",
     qualification: "M.Sc in Pure Mathematics, RU",
     gender: "Male",
-    subjectsAssigned: ["Mathematics", "Higher Math"],
-    classesAssigned: ["Class 6-B", "Class 8-A", "Class 9-B", "Class 10-A"],
+    subject: "Mathematics",
+    classes: ["Class 6-B", "Class 8-A", "Class 9-B", "Class 10-A"],
     joiningDate: "2017-03-20",
-    status: "Active",
-  },
-  {
-    teacherId: "TCH-104",
-    name: "Nasrin Sultana",
-    email: "nasrin.sultana@edujira.edu",
-    phone: "+880 1613-556677",
-    designation: "Chemistry Lecturer",
-    qualification: "M.Sc in Chemistry, BUET",
-    gender: "Female",
-    subjectsAssigned: ["Chemistry", "General Science"],
-    classesAssigned: ["Class 9-A", "Class 9-B", "Class 10-B"],
-    joiningDate: "2020-08-10",
-    status: "Active",
-  },
-  {
-    teacherId: "TCH-105",
-    name: "Kabir Hossain",
-    email: "kabir.hossain@edujira.edu",
-    phone: "+880 1514-667788",
-    designation: "Biology Specialist",
-    qualification: "M.Sc in Botany, CU",
-    gender: "Male",
-    subjectsAssigned: ["Biology"],
-    classesAssigned: ["Class 9-A", "Class 10-A"],
-    joiningDate: "2021-02-01",
     status: "Active",
   },
 ];
@@ -164,24 +134,6 @@ const defaultAdmins = [
     permissions: ["all", "manage_users", "academic_settings", "system_audit"],
     status: "Active",
   },
-  {
-    adminId: "ADM-002",
-    name: "Zobaer Zisan",
-    email: "zobaer.zisan@gmail.com",
-    phone: "+880 1800-223344",
-    designation: "Academic Dean & IT Director",
-    permissions: ["all", "manage_students", "manage_teachers", "reports"],
-    status: "Active",
-  },
-  {
-    adminId: "ADM-003",
-    name: "Shamima Nasrin",
-    email: "shamima.admin@edujira.edu",
-    phone: "+880 1900-334455",
-    designation: "Admission Coordinator",
-    permissions: ["manage_students", "manage_parents", "classes"],
-    status: "Active",
-  },
 ];
 
 const defaultParents = [
@@ -192,8 +144,9 @@ const defaultParents = [
     phone: "+880 1711-998877",
     occupation: "Civil Engineer",
     address: "House 42, Road 7, Dhanmondi, Dhaka",
+    preferredLanguage: "en",
     children: [
-      { studentId: "STD-801", studentName: "Rahim Uddin", className: "Class 8", section: "B", relationship: "Father" },
+      { studentId: "STD-801", studentName: "Rahim Uddin", className: "Class 8", section: "B" },
     ],
     status: "Active",
   },
@@ -204,48 +157,94 @@ const defaultParents = [
     phone: "+880 1811-887766",
     occupation: "Doctor (Pediatrician)",
     address: "Block C, Banani, Dhaka",
+    preferredLanguage: "bn",
     children: [
-      { studentId: "STD-803", studentName: "Fatima Islam", className: "Class 8", section: "B", relationship: "Mother" },
-      { studentId: "STD-902", studentName: "Sabbir Rahman", className: "Class 9", section: "A", relationship: "Mother" },
-    ],
-    status: "Active",
-  },
-  {
-    parentId: "PAR-103",
-    name: "Mahmudul Hasan",
-    email: "mahmudul.parent@edujira.edu",
-    phone: "+880 1911-776655",
-    occupation: "Business Executive",
-    address: "Uttara Sector 4, Dhaka",
-    children: [
-      { studentId: "STD-806", studentName: "Tanvir Hasan", className: "Class 8", section: "B", relationship: "Father" },
+      { studentId: "STD-803", studentName: "Fatima Islam", className: "Class 8", section: "B" },
+      { studentId: "STD-902", studentName: "Sabbir Rahman", className: "Class 9", section: "A" },
     ],
     status: "Active",
   },
 ];
 
 const defaultStudents = [
-  // Class 8 - B
-  { studentId: "STD-801", name: "Rahim Uddin", className: "Class 8", section: "B", roll: 1, email: "rahim@edujira.edu", phone: "+880 1711-101010", gender: "Male", dateOfBirth: "2011-04-12", bloodGroup: "A+", parentName: "Tariqul Islam", parentPhone: "+880 1711-998877", parentEmail: "tariqul.parent@edujira.edu", address: "Dhanmondi, Dhaka", status: "Active" },
-  { studentId: "STD-802", name: "Karim Ahmed", className: "Class 8", section: "B", roll: 2, email: "karim@edujira.edu", phone: "+880 1711-101011", gender: "Male", dateOfBirth: "2011-06-18", bloodGroup: "B+", parentName: "Anwar Ahmed", parentPhone: "+880 1711-998801", parentEmail: "anwar@gmail.com", address: "Mirpur 10, Dhaka", status: "Active" },
-  { studentId: "STD-803", name: "Fatima Islam", className: "Class 8", section: "B", roll: 3, email: "fatima@edujira.edu", phone: "+880 1711-101012", gender: "Female", dateOfBirth: "2011-09-22", bloodGroup: "O+", parentName: "Salma Begum", parentPhone: "+880 1811-887766", parentEmail: "salma.parent@edujira.edu", address: "Banani, Dhaka", status: "Active" },
-  { studentId: "STD-804", name: "Ayesha Khan", className: "Class 8", section: "B", roll: 4, email: "ayesha@edujira.edu", phone: "+880 1711-101013", gender: "Female", dateOfBirth: "2011-01-15", bloodGroup: "AB+", parentName: "Jahangir Khan", parentPhone: "+880 1711-998802", parentEmail: "jahangir@gmail.com", address: "Gulshan 1, Dhaka", status: "Active" },
-  { studentId: "STD-805", name: "Nusrat Jahan", className: "Class 8", section: "B", roll: 5, email: "nusrat@edujira.edu", phone: "+880 1711-101014", gender: "Female", dateOfBirth: "2011-11-05", bloodGroup: "A-", parentName: "Kamrul Islam", parentPhone: "+880 1711-998803", parentEmail: "kamrul@gmail.com", address: "Mohammadpur, Dhaka", status: "Active" },
-  { studentId: "STD-806", name: "Tanvir Hasan", className: "Class 8", section: "B", roll: 6, email: "tanvir@edujira.edu", phone: "+880 1711-101015", gender: "Male", dateOfBirth: "2011-03-30", bloodGroup: "O-", parentName: "Mahmudul Hasan", parentPhone: "+880 1911-776655", parentEmail: "mahmudul.parent@edujira.edu", address: "Uttara, Dhaka", status: "Active" },
-
-  // Class 8 - A
-  { studentId: "STD-811", name: "Farhan Ali", className: "Class 8", section: "A", roll: 1, email: "farhan@edujira.edu", phone: "+880 1711-101016", gender: "Male", dateOfBirth: "2011-05-14", bloodGroup: "B+", parentName: "Ali Hossain", parentPhone: "+880 1711-998804", address: "Bashundhara, Dhaka", status: "Active" },
-  { studentId: "STD-812", name: "Meherun Nesa", className: "Class 8", section: "A", roll: 2, email: "meherun@edujira.edu", phone: "+880 1711-101017", gender: "Female", dateOfBirth: "2011-08-09", bloodGroup: "A+", parentName: "Nazrul Islam", parentPhone: "+880 1711-998805", address: "Khilgaon, Dhaka", status: "Active" },
-  { studentId: "STD-813", name: "Shakil Ahmed", className: "Class 8", section: "A", roll: 3, email: "shakil@edujira.edu", phone: "+880 1711-101018", gender: "Male", dateOfBirth: "2011-07-21", bloodGroup: "O+", parentName: "Rashid Ahmed", parentPhone: "+880 1711-998806", address: "Malibagh, Dhaka", status: "Active" },
-
-  // Class 9 - A
-  { studentId: "STD-901", name: "Mim Akter", className: "Class 9", section: "A", roll: 1, email: "mim@edujira.edu", phone: "+880 1711-101020", gender: "Female", dateOfBirth: "2010-02-14", bloodGroup: "A+", parentName: "Rezaul Karim", parentPhone: "+880 1711-998807", address: "Badda, Dhaka", status: "Active" },
-  { studentId: "STD-902", name: "Sabbir Rahman", className: "Class 9", section: "A", roll: 2, email: "sabbir@edujira.edu", phone: "+880 1711-101021", gender: "Male", dateOfBirth: "2010-10-10", bloodGroup: "B+", parentName: "Salma Begum", parentPhone: "+880 1811-887766", parentEmail: "salma.parent@edujira.edu", address: "Banani, Dhaka", status: "Active" },
-  { studentId: "STD-903", name: "Nabila Sultana", className: "Class 9", section: "A", roll: 3, email: "nabila@edujira.edu", phone: "+880 1711-101022", gender: "Female", dateOfBirth: "2010-12-01", bloodGroup: "O+", parentName: "Mizanur Rahman", parentPhone: "+880 1711-998808", address: "Rampura, Dhaka", status: "Active" },
-
-  // Class 10 - A
-  { studentId: "STD-1001", name: "Hasib Khan", className: "Class 10", section: "A", roll: 1, email: "hasib@edujira.edu", phone: "+880 1711-101030", gender: "Male", dateOfBirth: "2009-03-25", bloodGroup: "A+", parentName: "Arif Khan", parentPhone: "+880 1711-998809", address: "Motijheel, Dhaka", status: "Active" },
-  { studentId: "STD-1002", name: "Sumaiya Islam", className: "Class 10", section: "A", roll: 2, email: "sumaiya@edujira.edu", phone: "+880 1711-101031", gender: "Female", dateOfBirth: "2009-09-19", bloodGroup: "AB+", parentName: "Sirajul Islam", parentPhone: "+880 1711-998810", address: "Lalbagh, Dhaka", status: "Active" },
+  {
+    studentId: "STD-801",
+    name: "Rahim Uddin",
+    className: "Class 8",
+    section: "B",
+    roll: 1,
+    email: "rahim@edujira.edu",
+    phone: "+880 1711-101010",
+    gender: "Male",
+    dateOfBirth: "2011-04-12",
+    bloodGroup: "A+",
+    parentName: "Tariqul Islam",
+    parentPhone: "+880 1711-998877",
+    parentEmail: "tariqul.parent@edujira.edu",
+    address: "Dhanmondi, Dhaka",
+    status: "approved",
+  },
+  {
+    studentId: "STD-803",
+    name: "Fatima Islam",
+    className: "Class 8",
+    section: "B",
+    roll: 3,
+    email: "fatima@edujira.edu",
+    phone: "+880 1711-101012",
+    gender: "Female",
+    dateOfBirth: "2011-09-22",
+    bloodGroup: "O+",
+    parentName: "Salma Begum",
+    parentPhone: "+880 1811-887766",
+    parentEmail: "salma.parent@edujira.edu",
+    address: "Banani, Dhaka",
+    status: "approved",
+  },
+  // Sample Pending Registration for Admin Approval Flow
+  {
+    studentId: "STD-9901",
+    name: "Kazi Tanvir Ahsan",
+    desiredClass: "Class 9",
+    className: "",
+    section: "",
+    email: "tanvir.applicant@gmail.com",
+    phone: "+880 1799-887766",
+    gender: "Male",
+    dateOfBirth: "2010-05-18",
+    bloodGroup: "B+",
+    parentName: "Kazi Ahsan Habib",
+    parentEmail: "ahsan.habib@gmail.com",
+    parentPhone: "+880 1712-334455",
+    address: "Uttara Sector 11, Dhaka",
+    previousSchool: "St. Joseph Higher Secondary School",
+    previousGPA: "4.85 / 5.00",
+    documents: [
+      "https://example.com/docs/jsc_transcript.pdf",
+      "https://example.com/docs/birth_certificate.pdf",
+    ],
+    status: "pending",
+  },
+  {
+    studentId: "STD-9902",
+    name: "Afrin Sultana",
+    desiredClass: "Class 8",
+    className: "",
+    section: "",
+    email: "afrin.applicant@gmail.com",
+    phone: "+880 1855-443322",
+    gender: "Female",
+    dateOfBirth: "2011-10-04",
+    bloodGroup: "A+",
+    parentName: "Sultana Razia",
+    parentEmail: "razia.parent@gmail.com",
+    parentPhone: "+880 1811-223344",
+    address: "Mirpur DOHS, Dhaka",
+    previousSchool: "Viqarunnisa Noon School",
+    previousGPA: "5.00 / 5.00",
+    documents: ["https://example.com/docs/transfer_cert.pdf"],
+    status: "pending",
+  },
 ];
 
 async function seed() {
@@ -253,9 +252,22 @@ async function seed() {
     console.log("Connecting to MongoDB for seeding...");
     await connectDB();
 
-    console.log("Seeding Classes...");
+    console.log("Seeding Classes & Sections...");
     await Class.deleteMany({});
-    await Class.insertMany(defaultClasses);
+    await Section.deleteMany({});
+    for (const c of defaultClasses) {
+      const createdClass = await Class.create(c);
+      for (const sec of c.sections) {
+        await Section.create({
+          name: sec,
+          classId: createdClass._id,
+          className: c.className,
+          capacity: c.capacity,
+          currentCount: sec === "B" && c.className === "Class 8" ? 2 : 0,
+          roomNumber: c.roomNumber,
+        });
+      }
+    }
 
     console.log("Seeding Subjects...");
     await Subject.deleteMany({});
@@ -280,18 +292,99 @@ async function seed() {
     console.log("Seeding Attendance records...");
     await Attendance.deleteMany({});
     const today = new Date().toISOString().split("T")[0];
-    const attendanceRecords = defaultStudents.map((st, idx) => ({
-      studentId: st.studentId,
-      studentName: st.name,
-      className: st.className,
-      section: st.section,
-      date: today,
-      status: idx % 6 === 5 ? "Absent" : idx % 6 === 4 ? "Late" : "Present",
-      remarks: idx % 6 === 5 ? "Sick leave reported" : "",
-    }));
-    await Attendance.insertMany(attendanceRecords);
+    await Attendance.create([
+      { studentId: "STD-801", studentName: "Rahim Uddin", className: "Class 8", section: "B", date: today, status: "Present" },
+      { studentId: "STD-803", studentName: "Fatima Islam", className: "Class 8", section: "B", date: today, status: "Present" },
+    ]);
 
-    console.log("Database seeded successfully with all collections in 'EduJira'!");
+    console.log("Seeding Results / Grades...");
+    await Result.deleteMany({});
+    await Result.insertMany([
+      { studentId: "STD-801", studentName: "Rahim Uddin", studentEmail: "rahim@edujira.edu", className: "Class 8", section: "B", subjectName: "Mathematics", subjectCode: "MATH-08", term: "Mid Term", marks: 92, grade: "A+", gpa: 5.0, teacherRemarks: "Outstanding analytical ability", aiNarrativeComment: "Rahim demonstrated exemplary mathematical acumen and problem solving this term." },
+      { studentId: "STD-801", studentName: "Rahim Uddin", studentEmail: "rahim@edujira.edu", className: "Class 8", section: "B", subjectName: "General Science", subjectCode: "SCI-08", term: "Mid Term", marks: 88, grade: "A+", gpa: 5.0, teacherRemarks: "Very active in lab demos" },
+      { studentId: "STD-801", studentName: "Rahim Uddin", studentEmail: "rahim@edujira.edu", className: "Class 8", section: "B", subjectName: "English", subjectCode: "ENG-08", term: "Mid Term", marks: 81, grade: "A+", gpa: 5.0, teacherRemarks: "Good vocabulary and essay structure" },
+      { studentId: "STD-801", studentName: "Rahim Uddin", studentEmail: "rahim@edujira.edu", className: "Class 8", section: "B", subjectName: "ICT & Computing", subjectCode: "ICT-08", term: "Mid Term", marks: 95, grade: "A+", gpa: 5.0, teacherRemarks: "Superb programming project" },
+    ]);
+
+    console.log("Seeding Class Routines...");
+    await Routine.deleteMany({});
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
+    for (const day of days) {
+      await Routine.create({
+        className: "Class 8",
+        section: "B",
+        day,
+        periodSlots: [
+          { period: "1st Period", time: "09:00 - 09:45 AM", subject: "Mathematics", teacher: "Mohammad Rafiq", teacherEmail: "mohammad.rafiq@edujira.edu", room: "Room 201" },
+          { period: "2nd Period", time: "09:50 - 10:35 AM", subject: "English Literature", teacher: "Farzana Yasmin", teacherEmail: "farzana.yasmin@edujira.edu", room: "Room 201" },
+          { period: "3rd Period", time: "10:40 - 11:25 AM", subject: "General Science", teacher: "Dr. Anisur Rahman", teacherEmail: "anisur.rahman@edujira.edu", room: "Room 201" },
+          { period: "4th Period", time: "11:45 - 12:30 PM", subject: "ICT & Computing", teacher: "Tanvir Hasan", teacherEmail: "tanvir.hasan@edujira.edu", room: "Computer Lab" },
+        ],
+      });
+    }
+
+    console.log("Seeding Notices...");
+    await Notice.deleteMany({});
+    await Notice.insertMany([
+      {
+        title: "Mid-Term Examination Routine Published",
+        body: "The Mid-Term examinations for all grades will commence from next Sunday. All students are instructed to collect their admit cards from the admin counter.",
+        targetType: "all",
+        category: "Academic",
+        priority: "high",
+        createdBy: "Head Administrator",
+        isDeleted: false,
+      },
+      {
+        title: "Parent-Teacher Conference (Grade 8 & 9)",
+        body: "Parent-Teacher conference will be held this Saturday from 10:00 AM to 1:00 PM in the central auditorium to discuss student progress.",
+        targetType: "role",
+        targetRole: "parent",
+        category: "Event",
+        priority: "normal",
+        createdBy: "Academic Coordinator",
+        isDeleted: false,
+      },
+      {
+        title: "Science Club Annual Project Submission",
+        body: "Grade 8 and Grade 9 science enthusiasts are invited to submit their science exhibition project abstracts by the 25th of this month.",
+        targetType: "class",
+        className: "Class 8",
+        category: "Event",
+        priority: "normal",
+        createdBy: "Science Faculty",
+        isDeleted: false,
+      },
+    ]);
+
+    console.log("Seeding Assignments...");
+    await Assignment.deleteMany({});
+    await Assignment.create({
+      title: "Algebraic Expressions & Factorization Problem Set",
+      description: "Solve Exercise 4.2 Questions 1 to 15 from Chapter 4 of the textbook. Write step-by-step proofs.",
+      className: "Class 8",
+      section: "B",
+      subjectName: "Mathematics",
+      teacherName: "Mohammad Rafiq",
+      teacherEmail: "mohammad.rafiq@edujira.edu",
+      deadline: "2026-09-20",
+      totalMarks: 25,
+      submissions: [
+        {
+          studentId: "STD-801",
+          studentName: "Rahim Uddin",
+          studentEmail: "rahim@edujira.edu",
+          submissionText: "Completed all 15 questions with formula derivations.",
+          fileUrl: "https://example.com/submissions/rahim_math_hw.pdf",
+          submittedAt: new Date(),
+          marksObtained: 24,
+          feedback: "Excellent precision in Step 7 of Problem 12!",
+          status: "graded",
+        },
+      ],
+    });
+
+    console.log("Database seeded successfully with all initial sample records!");
     await mongoose.connection.close();
     process.exit(0);
   } catch (err) {

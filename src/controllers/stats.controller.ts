@@ -37,7 +37,7 @@ export async function getOverviewStats(req: Request, res: Response) {
       Teacher.find().sort({ createdAt: -1 }).limit(5),
     ]);
 
-    const presentToday = todayAttendances.filter((a) => a.status === "Present").length;
+    const presentToday = todayAttendances.filter((a) => a.status === "Present" || a.status === "present").length;
     const totalMarkedToday = todayAttendances.length;
     const attendanceRate = totalMarkedToday > 0 ? Math.round((presentToday / totalMarkedToday) * 100) : 94; // fallback positive baseline
 
@@ -52,7 +52,7 @@ export async function getOverviewStats(req: Request, res: Response) {
         attendanceRate,
         presentToday,
         totalMarkedToday,
-        classBreakdown: classBreakdown.map((c) => ({ className: c._id, count: c.count })),
+        classBreakdown: classBreakdown.map((c: any) => ({ className: c._id || "Unassigned", count: c.count })),
         recentStudents,
         recentTeachers,
       },
@@ -75,7 +75,7 @@ export async function getTeacherPortalStats(req: Request, res: Response) {
       teacher = await Teacher.findOne(); // default first teacher as fallback
     }
 
-    const assignedClasses = teacher?.classesAssigned || ["Class 8-A", "Class 8-B", "Class 9-A"];
+    const assignedClasses: string[] = teacher?.classes || ["Class 8-A", "Class 8-B", "Class 9-A"];
     const classNames = Array.from(new Set(assignedClasses.map((c: string) => c.split("-")[0])));
 
     const [students, subjects] = await Promise.all([
@@ -101,31 +101,45 @@ export async function getTeacherPortalStats(req: Request, res: Response) {
 // GET /api/stats/student-portal - Stats for logged-in student
 export async function getStudentPortalStats(req: Request, res: Response) {
   try {
-    const { email, studentId } = req.query;
+    const { email, studentId, name } = req.query;
     let student = null;
 
     if (studentId) {
       student = await Student.findOne({ studentId });
     } else if (email) {
-      student = await Student.findOne({ email: String(email).toLowerCase() });
+      student = await Student.findOne({ email: new RegExp(`^${String(email).trim()}$`, "i") });
     }
 
-    if (!student) {
-      student = await Student.findOne(); // fallback first student
+    if (!student && email) {
+      // If student not found by email, check by name
+      if (name) {
+        student = await Student.findOne({ name: new RegExp(`^${String(name).trim()}$`, "i") });
+      }
     }
+
+    const effectiveStudentId = student?.studentId || "STD-801";
+    const effectiveClass = student?.className || "Class 8";
 
     const [subjects, attendances] = await Promise.all([
-      Subject.find({ className: student?.className || "Class 8" }),
-      Attendance.find({ studentId: student?.studentId }).sort({ date: -1 }).limit(30),
+      Subject.find({ className: effectiveClass }),
+      Attendance.find({ studentId: effectiveStudentId }).sort({ date: -1 }).limit(30),
     ]);
 
-    const presentCount = attendances.filter((a) => a.status === "Present").length;
-    const attendancePercentage = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 92;
+    const presentCount = attendances.filter((a) => a.status === "Present" || a.status === "present").length;
+    const attendancePercentage = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 100;
 
     return res.json({
       success: true,
       data: {
-        student,
+        student: student || {
+          studentId: "STD-801",
+          name: name || "Student",
+          email: email || "",
+          className: "Class 8",
+          section: "B",
+          roll: "01",
+          status: "approved",
+        },
         subjects,
         attendances,
         attendancePercentage,
@@ -154,8 +168,10 @@ export async function getParentPortalStats(req: Request, res: Response) {
     }
 
     // Fetch live student objects for each child
-    const childrenIds = parent?.children?.map((c: any) => c.studentId) || [];
-    const childrenDetails = await Student.find({ studentId: { $in: childrenIds } });
+    const childrenIds = parent?.children?.map((c: any) => c.studentId || c) || [];
+    const childrenDetails = await Student.find({
+      $or: [{ studentId: { $in: childrenIds } }, { parentEmail: parent?.email || "" }],
+    });
 
     return res.json({
       success: true,

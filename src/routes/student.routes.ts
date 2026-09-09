@@ -1,6 +1,11 @@
 import { Router } from "express";
 import {
   getAllStudents,
+  getPendingStudents,
+  registerStudent,
+  approveStudent,
+  rejectStudent,
+  checkStudentStatus,
   getStudentById,
   createStudent,
   updateStudent,
@@ -11,6 +16,12 @@ import {
 const router = Router();
 
 router.get("/classes", getClassOptions);
+router.get("/pending", getPendingStudents);
+router.get("/status", checkStudentStatus);
+router.post("/register", registerStudent);
+router.post("/:id/approve", approveStudent);
+router.post("/:id/reject", rejectStudent);
+
 router.get("/", getAllStudents);
 router.get("/:id", getStudentById);
 router.post("/", createStudent);

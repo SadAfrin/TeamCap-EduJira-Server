@@ -7,19 +7,28 @@ try {
   // Ignore if DNS server configuration is restricted
 }
 
+let isConnected = false;
+
 const connectDB = async (): Promise<void> => {
+  if (isConnected || mongoose.connection.readyState >= 1) {
+    return;
+  }
+
   try {
     const mongoURI = process.env.MONGODB_URI as string;
     if (!mongoURI) {
-      throw new Error('MONGODB_URI is not defined in the .env file');
+      console.warn('MONGODB_URI is not defined in environment variables');
+      return;
     }
+
     await mongoose.connect(mongoURI, {
       dbName: "EduJira",
+      bufferCommands: false,
     });
+    isConnected = true;
     console.log('Database connected successfully with Mongoose! (DB: EduJira)');
   } catch (error) {
     console.error('Database connection failed:', error);
-    process.exit(1);
   }
 };
 
