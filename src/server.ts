@@ -8,16 +8,21 @@ try {
 
 import dotenv from "dotenv";
 dotenv.config();
-import app from "./app";
-import connectDB from "./config/db";
+import http from 'http';
+import app from './app';
+import connectDB from './config/db';
+import { initSocket } from './lib/socket';
 
 const PORT = process.env.PORT || 5000;
+
+const httpServer = http.createServer(app);
+initSocket(httpServer);
 
 async function startServer() {
   try {
     await connectDB();
-    app.listen(PORT, () => {
-      console.log(`EduJira Server is running on port ${PORT}`);
+    httpServer.listen(PORT, () => {
+      console.log(`EduJira Server + Socket.io running on port ${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
@@ -28,7 +33,7 @@ async function startServer() {
 if (!process.env.VERCEL) {
   startServer();
 } else {
-  connectDB(); // still connect to DB on Vercel, just don't call .listen()
+  connectDB();
 }
 
 export default app;

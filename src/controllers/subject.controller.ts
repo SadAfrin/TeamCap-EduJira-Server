@@ -1,15 +1,18 @@
 import { Request, Response } from "express";
 import Subject from "../models/Subject.model";
-import Class from "../models/Class.model";
+import { buildIdOrCustomQuery } from "../lib/idHelper";
 
-// GET /api/subjects - List subjects with optional class and search filters
+// GET /api/subjects
 export async function getAllSubjects(req: Request, res: Response) {
   try {
-    const { className, search } = req.query;
+    const { className, search, department } = req.query;
     const filter: Record<string, any> = {};
 
     if (className && className !== "All") {
       filter.className = className;
+    }
+    if (department && department !== "All") {
+      filter.department = department;
     }
     if (search) {
       const searchRegex = new RegExp(String(search), "i");
@@ -17,6 +20,7 @@ export async function getAllSubjects(req: Request, res: Response) {
         { name: searchRegex },
         { subjectCode: searchRegex },
         { teacherName: searchRegex },
+        { className: searchRegex },
       ];
     }
 
@@ -30,10 +34,8 @@ export async function getAllSubjects(req: Request, res: Response) {
 // GET /api/subjects/:id
 export async function getSubjectById(req: Request, res: Response) {
   try {
-    const id = String(req.params.id);
-    const subject = await Subject.findOne({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { subjectCode: id }],
-    });
+    const { id } = req.params;
+    const subject = await Subject.findOne(buildIdOrCustomQuery(id, "subjectCode"));
 
     if (!subject) {
       return res.status(404).json({ success: false, message: "Subject not found" });
@@ -48,34 +50,29 @@ export async function getSubjectById(req: Request, res: Response) {
 // POST /api/subjects
 export async function createSubject(req: Request, res: Response) {
   try {
-    const { subjectCode, name, className, type, credits, teacherName, description } = req.body;
+    const { name, subjectCode, className, teacherName, teacherEmail, credits, department, description } = req.body;
 
-    if (!subjectCode || !name || !className) {
-      return res.status(400).json({ success: false, message: "Subject Code, Name, and Class are required" });
+    if (!name || !subjectCode || !className) {
+      return res.status(400).json({ success: false, message: "Subject Name, Subject Code, and Class are required" });
     }
 
-    const existing = await Subject.findOne({ subjectCode });
+    const existing = await Subject.findOne({ subjectCode: subjectCode.trim() });
     if (existing) {
-      return res.status(409).json({ success: false, message: `Subject Code "${subjectCode}" already exists` });
+      return res.status(409).json({ success: false, message: `Subject with Code "${subjectCode}" already exists` });
     }
 
-    const subject = await Subject.create({
-      subjectCode,
-      name,
-      className,
-      type: type || "Core",
-      credits: credits || 3,
+    const newSubject = await Subject.create({
+      name: name.trim(),
+      subjectCode: subjectCode.trim(),
+      className: className.trim(),
       teacherName: teacherName || "",
+      teacherEmail: teacherEmail || "",
+      credits: credits || 3,
+      department: department || "General",
       description: description || "",
     });
 
-    // Also link subject name to class if exists
-    await Class.findOneAndUpdate(
-      { className },
-      { $addToSet: { subjects: name } }
-    );
-
-    return res.status(201).json({ success: true, message: "Subject created successfully", data: subject });
+    return res.status(201).json({ success: true, message: "Subject created successfully", data: newSubject });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message || "Failed to create subject" });
   }
@@ -88,7 +85,7 @@ export async function updateSubject(req: Request, res: Response) {
     const updateData = req.body;
 
     const subject = await Subject.findOneAndUpdate(
-      { $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { subjectCode: id }] },
+      buildIdOrCustomQuery(id, "subjectCode"),
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -106,20 +103,12 @@ export async function updateSubject(req: Request, res: Response) {
 // DELETE /api/subjects/:id
 export async function deleteSubject(req: Request, res: Response) {
   try {
-    const id = String(req.params.id);
-    const subject = await Subject.findOneAndDelete({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { subjectCode: id }],
-    });
+    const { id } = req.params;
+    const subject = await Subject.findOneAndDelete(buildIdOrCustomQuery(id, "subjectCode"));
 
     if (!subject) {
       return res.status(404).json({ success: false, message: "Subject not found" });
     }
-
-    // Also remove from class
-    await Class.findOneAndUpdate(
-      { className: subject.className },
-      { $pull: { subjects: subject.name } }
-    );
 
     return res.json({ success: true, message: "Subject deleted successfully", data: subject });
   } catch (error: any) {
