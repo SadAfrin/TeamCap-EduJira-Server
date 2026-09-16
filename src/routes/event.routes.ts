@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createEvent,
+  createBulkEvents,
   getAllEvents,
   getEventById,
   updateEvent,
@@ -9,6 +10,7 @@ import {
 
 const router = Router();
 
+router.post("/bulk", createBulkEvents);
 router.post("/", createEvent);
 router.get("/", getAllEvents);
 router.get("/:id", getEventById);
@@ -16,3 +18,4 @@ router.patch("/:id", updateEvent);
 router.delete("/:id", deleteEvent);
 
 export default router;
+
