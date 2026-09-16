@@ -146,7 +146,7 @@ const defaultParents = [
     address: "House 42, Road 7, Dhanmondi, Dhaka",
     preferredLanguage: "en",
     children: [
-      { studentId: "STD-801", studentName: "Rahim Uddin", className: "Class 8", section: "B" },
+      { studentId: "STD-801", studentName: "Rahim Uddin", className: "Class 8", section: "B", relationship: "Father", status: "approved" },
     ],
     status: "Active",
   },
@@ -159,8 +159,8 @@ const defaultParents = [
     address: "Block C, Banani, Dhaka",
     preferredLanguage: "bn",
     children: [
-      { studentId: "STD-803", studentName: "Fatima Islam", className: "Class 8", section: "B" },
-      { studentId: "STD-902", studentName: "Sabbir Rahman", className: "Class 9", section: "A" },
+      { studentId: "STD-803", studentName: "Fatima Islam", className: "Class 8", section: "B", relationship: "Mother", status: "approved" },
+      { studentId: "STD-902", studentName: "Sabbir Rahman", className: "Class 9", section: "A", relationship: "Mother", status: "approved" },
     ],
     status: "Active",
   },
