@@ -53,11 +53,15 @@ export const createSlot = async (
   try {
     const {
       dayOfWeek,
+      day,
       courseCode,
       courseName,
+      subject,
       teacherName,
+      teacher,
       teacherId,
       className,
+      grade,
       section,
       classCode,
       startTime,
@@ -68,11 +72,17 @@ export const createSlot = async (
       semester,
     } = req.body;
 
+    const effDay = (dayOfWeek || day) as DayOfWeek;
+    const effCourseName = (courseName || subject || "").trim();
+    const effTeacher = (teacherName || teacher || "").trim();
+    const effClass = (className || grade || "").trim();
+    const effCourseCode = (courseCode || (effCourseName ? `${effCourseName.slice(0, 3).toUpperCase()}101` : "SUB101")).trim();
+
     if (
-      !dayOfWeek ||
-      !courseCode ||
-      !courseName ||
-      !teacherName ||
+      !effDay ||
+      !effCourseCode ||
+      !effCourseName ||
+      !effTeacher ||
       !startTime ||
       !endTime ||
       !room
@@ -80,12 +90,12 @@ export const createSlot = async (
       res.status(400).json({
         success: false,
         message:
-          "dayOfWeek, courseCode, courseName, teacherName, startTime, endTime, and room are required fields.",
+          "dayOfWeek/day, courseName/subject, teacherName/teacher, startTime, endTime, and room are required fields.",
       });
       return;
     }
 
-    if (!DAYS_ORDER.includes(dayOfWeek as DayOfWeek)) {
+    if (!DAYS_ORDER.includes(effDay)) {
       res.status(400).json({
         success: false,
         message: `Invalid dayOfWeek. Must be one of: ${DAYS_ORDER.join(", ")}`,
@@ -106,16 +116,16 @@ export const createSlot = async (
 
     // Auto-generate classCode if className and section are provided
     const computedClassCode =
-      classCode || (className && section ? `${className}-${section}` : className);
+      classCode || (effClass && section ? `${effClass}-${section}` : effClass);
 
     const slot = new TimetableSlot({
-      dayOfWeek,
-      courseCode,
-      courseName,
-      teacherName,
+      dayOfWeek: effDay,
+      courseCode: effCourseCode,
+      courseName: effCourseName,
+      teacherName: effTeacher,
       teacherId,
-      className,
-      section,
+      className: effClass,
+      section: section || "A",
       classCode: computedClassCode,
       startTime,
       endTime,
@@ -126,10 +136,20 @@ export const createSlot = async (
     });
 
     await slot.save();
+
+    const formattedSlot = {
+      ...(slot.toObject ? slot.toObject() : slot),
+      id: slot._id,
+      day: slot.dayOfWeek,
+      subject: slot.courseName,
+      teacher: slot.teacherName,
+      grade: slot.className,
+    };
+
     res.status(201).json({
       success: true,
       message: "Timetable slot created successfully.",
-      data: slot,
+      data: formattedSlot,
     });
   } catch (error) {
     next(error);
@@ -156,11 +176,17 @@ export const createBulkSlots = async (
     const validatedSlots = [];
     for (let i = 0; i < slots.length; i++) {
       const s = slots[i];
+      const effDay = (s.dayOfWeek || s.day) as DayOfWeek;
+      const effCourseName = (s.courseName || s.subject || "").trim();
+      const effTeacher = (s.teacherName || s.teacher || "").trim();
+      const effClass = (s.className || s.grade || "").trim();
+      const effCourseCode = (s.courseCode || (effCourseName ? `${effCourseName.slice(0, 3).toUpperCase()}101` : "SUB101")).trim();
+
       if (
-        !s.dayOfWeek ||
-        !s.courseCode ||
-        !s.courseName ||
-        !s.teacherName ||
+        !effDay ||
+        !effCourseCode ||
+        !effCourseName ||
+        !effTeacher ||
         !s.startTime ||
         !s.endTime ||
         !s.room
@@ -184,19 +210,41 @@ export const createBulkSlots = async (
 
       const computedClassCode =
         s.classCode ||
-        (s.className && s.section ? `${s.className}-${s.section}` : s.className);
+        (effClass && s.section ? `${effClass}-${s.section}` : effClass);
 
       validatedSlots.push({
-        ...s,
+        dayOfWeek: effDay,
+        courseCode: effCourseCode,
+        courseName: effCourseName,
+        teacherName: effTeacher,
+        teacherId: s.teacherId,
+        className: effClass,
+        section: s.section || "A",
         classCode: computedClassCode,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        room: s.room,
+        color: s.color,
+        academicYear: s.academicYear,
+        semester: s.semester,
       });
     }
 
     const createdSlots = await TimetableSlot.insertMany(validatedSlots);
+
+    const formattedSlots = createdSlots.map((slot: any) => ({
+      ...(slot.toObject ? slot.toObject() : slot),
+      id: slot._id,
+      day: slot.dayOfWeek,
+      subject: slot.courseName,
+      teacher: slot.teacherName,
+      grade: slot.className,
+    }));
+
     res.status(201).json({
       success: true,
       message: `Successfully created ${createdSlots.length} timetable slots.`,
-      data: createdSlots,
+      data: formattedSlots,
     });
   } catch (error) {
     next(error);
@@ -212,10 +260,13 @@ export const getAllSlots = async (
   try {
     const {
       dayOfWeek,
+      day,
       className,
+      grade,
       section,
       classCode,
       teacherName,
+      teacher,
       teacherId,
       room,
       courseCode,
@@ -225,11 +276,15 @@ export const getAllSlots = async (
 
     const filter: Record<string, any> = { isActive: true };
 
-    if (dayOfWeek) {
-      filter.dayOfWeek = dayOfWeek;
+    const effDay = dayOfWeek || day;
+    const effClass = className || grade;
+    const effTeacher = teacherName || teacher;
+
+    if (effDay) {
+      filter.dayOfWeek = effDay;
     }
-    if (className) {
-      filter.className = { $regex: new RegExp(`^${className}$`, "i") };
+    if (effClass) {
+      filter.className = { $regex: new RegExp(`^${effClass}$`, "i") };
     }
     if (section) {
       filter.section = { $regex: new RegExp(`^${section}$`, "i") };
@@ -237,8 +292,8 @@ export const getAllSlots = async (
     if (classCode) {
       filter.classCode = { $regex: new RegExp(`^${classCode}$`, "i") };
     }
-    if (teacherName) {
-      filter.teacherName = { $regex: teacherName, $options: "i" };
+    if (effTeacher) {
+      filter.teacherName = { $regex: effTeacher as string, $options: "i" };
     }
     if (teacherId) {
       filter.teacherId = teacherId;
@@ -260,10 +315,20 @@ export const getAllSlots = async (
       dayOfWeek: 1,
       startTime: 1,
     });
+
+    const formattedSlots = slots.map((slot: any) => ({
+      ...(slot.toObject ? slot.toObject() : slot),
+      id: slot._id,
+      day: slot.dayOfWeek,
+      subject: slot.courseName,
+      teacher: slot.teacherName,
+      grade: slot.className,
+    }));
+
     res.status(200).json({
       success: true,
-      count: slots.length,
-      data: slots,
+      count: formattedSlots.length,
+      data: formattedSlots,
     });
   } catch (error) {
     next(error);
@@ -534,11 +599,15 @@ export const updateSlot = async (
     const id = req.params.id as string;
     const {
       dayOfWeek,
+      day,
       courseCode,
       courseName,
+      subject,
       teacherName,
+      teacher,
       teacherId,
       className,
+      grade,
       section,
       classCode,
       startTime,
@@ -579,22 +648,27 @@ export const updateSlot = async (
       return;
     }
 
+    const effClass = className !== undefined ? className : grade !== undefined ? grade : slot.className;
+    const effCourseName = courseName !== undefined ? courseName : subject !== undefined ? subject : slot.courseName;
+    const effTeacher = teacherName !== undefined ? teacherName : teacher !== undefined ? teacher : slot.teacherName;
+    const effDay = dayOfWeek !== undefined ? dayOfWeek : day !== undefined ? day : slot.dayOfWeek;
+
     const updatedClassCode =
       classCode !== undefined
         ? classCode
-        : className && section
-        ? `${className}-${section}`
+        : effClass && section
+        ? `${effClass}-${section}`
         : slot.classCode;
 
     const updatedSlot = await TimetableSlot.findByIdAndUpdate(
       id,
       {
-        dayOfWeek: dayOfWeek !== undefined ? dayOfWeek : slot.dayOfWeek,
+        dayOfWeek: effDay,
         courseCode: courseCode !== undefined ? courseCode : slot.courseCode,
-        courseName: courseName !== undefined ? courseName : slot.courseName,
-        teacherName: teacherName !== undefined ? teacherName : slot.teacherName,
+        courseName: effCourseName,
+        teacherName: effTeacher,
         teacherId: teacherId !== undefined ? teacherId : slot.teacherId,
-        className: className !== undefined ? className : slot.className,
+        className: effClass,
         section: section !== undefined ? section : slot.section,
         classCode: updatedClassCode,
         startTime: updatedStartTime,
@@ -609,10 +683,21 @@ export const updateSlot = async (
       { returnDocument: "after", runValidators: true }
     );
 
+    const formattedSlot = updatedSlot
+      ? {
+          ...(updatedSlot.toObject ? updatedSlot.toObject() : updatedSlot),
+          id: updatedSlot._id,
+          day: updatedSlot.dayOfWeek,
+          subject: updatedSlot.courseName,
+          teacher: updatedSlot.teacherName,
+          grade: updatedSlot.className,
+        }
+      : updatedSlot;
+
     res.status(200).json({
       success: true,
       message: "Timetable slot updated successfully.",
-      data: updatedSlot,
+      data: formattedSlot,
     });
   } catch (error) {
     next(error);
