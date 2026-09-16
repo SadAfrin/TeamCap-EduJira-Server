@@ -164,20 +164,41 @@ export async function getParentPortalStats(req: Request, res: Response) {
     }
 
     if (!parent) {
-      parent = await Parent.findOne(); // fallback
+      return res.json({
+        success: true,
+        data: {
+          parent: null,
+          children: [],
+        },
+      });
     }
 
-    // Fetch live student objects for each child
-    const childrenIds = parent?.children?.map((c: any) => c.studentId || c) || [];
-    const childrenDetails = await Student.find({
-      $or: [{ studentId: { $in: childrenIds } }, { parentEmail: parent?.email || "" }],
-    });
+    const approvedChildren = (parent.children || []).filter(
+      (c: any) => !c.status || c.status === "approved"
+    );
+    const childrenIds = approvedChildren.map((c: any) => c.studentId).filter(Boolean);
+    const childrenDetails = childrenIds.length
+      ? await Student.find({ studentId: { $in: childrenIds } })
+      : [];
+
+    const children =
+      childrenDetails.length > 0
+        ? childrenDetails.map((student) => {
+            const link = approvedChildren.find((c: any) => c.studentId === student.studentId);
+            return {
+              ...student.toObject(),
+              studentName: student.name,
+              relationship: link?.relationship,
+              status: "approved",
+            };
+          })
+        : approvedChildren;
 
     return res.json({
       success: true,
       data: {
         parent,
-        children: childrenDetails.length > 0 ? childrenDetails : parent?.children || [],
+        children,
       },
     });
   } catch (error: any) {
