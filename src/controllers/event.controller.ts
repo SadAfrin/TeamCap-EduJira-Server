@@ -2,6 +2,34 @@ import { Request, Response, NextFunction } from "express";
 import { Event } from "../models/Event";
 import mongoose from "mongoose";
 
+// Helper to compute startDate and endDate
+const computeEventDates = (date?: string, startTime?: string, endTime?: string, startDate?: any, endDate?: any) => {
+  let start: Date;
+  let end: Date;
+
+  if (startDate) {
+    start = new Date(startDate);
+  } else if (date && startTime) {
+    const parsed = new Date(`${date}T${startTime}:00`);
+    start = isNaN(parsed.getTime()) ? new Date(date) : parsed;
+  } else if (date) {
+    start = new Date(date);
+  } else {
+    start = new Date();
+  }
+
+  if (endDate) {
+    end = new Date(endDate);
+  } else if (date && endTime) {
+    const parsed = new Date(`${date}T${endTime}:00`);
+    end = isNaN(parsed.getTime()) ? new Date(start.getTime() + 60 * 60 * 1000) : parsed;
+  } else {
+    end = new Date(start.getTime() + 60 * 60 * 1000);
+  }
+
+  return { start, end };
+};
+
 // Create Event
 export const createEvent = async (
   req: Request,
@@ -10,11 +38,18 @@ export const createEvent = async (
 ): Promise<void> => {
   try {
     const {
+      id,
+      customId,
       title,
       description,
+      date,
+      startTime,
+      endTime,
       startDate,
       endDate,
       category,
+      calendarId,
+      targetRoles,
       location,
       color,
       courseCode,
@@ -22,43 +57,38 @@ export const createEvent = async (
       createdBy,
     } = req.body;
 
-    if (!title || !startDate || !endDate) {
+    if (!title) {
       res.status(400).json({
         success: false,
-        message: "Title, start date, and end date are required fields.",
+        message: "Title is a required field.",
       });
       return;
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const { start, end } = computeEventDates(date, startTime, endTime, startDate, endDate);
 
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      res.status(400).json({
-        success: false,
-        message: "Invalid date format.",
-      });
-      return;
-    }
-
-    if (start > end) {
-      res.status(400).json({
-        success: false,
-        message: "Start date must be before end date.",
-      });
-      return;
-    }
+    const eventDate = date || start.toISOString().split("T")[0];
+    const eventStartTime = startTime || `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+    const eventEndTime = endTime || `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
 
     const event = new Event({
+      customId: customId || id,
       title,
-      description,
+      description: description || "",
+      date: eventDate,
+      startTime: eventStartTime,
+      endTime: eventEndTime,
       startDate: start,
       endDate: end,
-      category,
-      location,
+      category: category || "event",
+      calendarId: calendarId || "cal-academic",
+      targetRoles: Array.isArray(targetRoles) && targetRoles.length > 0
+        ? targetRoles
+        : ["admin", "teacher", "student", "parent"],
+      location: location || "",
       color,
       courseCode,
-      isAllDay,
+      isAllDay: !!isAllDay,
       createdBy,
     });
 
@@ -73,6 +103,62 @@ export const createEvent = async (
   }
 };
 
+// Bulk Create Events (useful for initial seeding)
+export const createBulkEvents = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { events } = req.body;
+
+    if (!Array.isArray(events) || events.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: "events array is required and must not be empty.",
+      });
+      return;
+    }
+
+    const validatedEvents = events.map((e: any) => {
+      const { start, end } = computeEventDates(e.date, e.startTime, e.endTime, e.startDate, e.endDate);
+      const eventDate = e.date || start.toISOString().split("T")[0];
+      const eventStartTime = e.startTime || "09:00";
+      const eventEndTime = e.endTime || "10:00";
+
+      return {
+        customId: e.id || e.customId,
+        title: e.title,
+        description: e.description || "",
+        date: eventDate,
+        startTime: eventStartTime,
+        endTime: eventEndTime,
+        startDate: start,
+        endDate: end,
+        category: e.category || "event",
+        calendarId: e.calendarId || "cal-academic",
+        targetRoles: Array.isArray(e.targetRoles) && e.targetRoles.length > 0
+          ? e.targetRoles
+          : ["admin", "teacher", "student", "parent"],
+        location: e.location || "",
+        color: e.color,
+        courseCode: e.courseCode,
+        isAllDay: !!e.isAllDay,
+        createdBy: e.createdBy,
+      };
+    });
+
+    const createdEvents = await Event.insertMany(validatedEvents);
+    res.status(201).json({
+      success: true,
+      message: `Successfully created ${createdEvents.length} events.`,
+      data: createdEvents,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get All Events (with filtering)
 export const getAllEvents = async (
   req: Request,
@@ -80,11 +166,23 @@ export const getAllEvents = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { startDate, endDate, category, courseCode } = req.query;
+    const { startDate, endDate, date, category, calendarId, role, courseCode } = req.query;
     const filter: Record<string, any> = {};
 
     if (category) {
       filter.category = category;
+    }
+
+    if (calendarId) {
+      filter.calendarId = calendarId;
+    }
+
+    if (date) {
+      filter.date = date;
+    }
+
+    if (role) {
+      filter.targetRoles = role;
     }
 
     if (courseCode) {
@@ -98,7 +196,6 @@ export const getAllEvents = async (
       if (startDate) {
         const start = new Date(startDate as string);
         if (!isNaN(start.getTime())) {
-          // Event end date should be after or equal to the start filter
           filter.$and.push({ endDate: { $gte: start } });
         }
       }
@@ -106,17 +203,25 @@ export const getAllEvents = async (
       if (endDate) {
         const end = new Date(endDate as string);
         if (!isNaN(end.getTime())) {
-          // Event start date should be before or equal to the end filter
           filter.$and.push({ startDate: { $lte: end } });
         }
       }
     }
 
-    const events = await Event.find(filter).sort({ startDate: 1 });
-    res.status(200).json({ success: true, data: events });
+    const events = await Event.find(filter).sort({ date: 1, startTime: 1, startDate: 1 });
+    res.status(200).json({ success: true, count: events.length, data: events });
   } catch (error) {
     next(error);
   }
+};
+
+// Helper to find an event by Mongo _id or customId
+const findEventByIdOrCustomId = async (id: string) => {
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    const byId = await Event.findById(id);
+    if (byId) return byId;
+  }
+  return await Event.findOne({ customId: id });
 };
 
 // Get Event By ID
@@ -127,15 +232,15 @@ export const getEventById = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!id) {
       res.status(400).json({
         success: false,
-        message: "Invalid event ID format.",
+        message: "Event ID is required.",
       });
       return;
     }
 
-    const event = await Event.findById(id);
+    const event = await findEventByIdOrCustomId(id);
     if (!event) {
       res.status(404).json({
         success: false,
@@ -161,24 +266,29 @@ export const updateEvent = async (
     const {
       title,
       description,
+      date,
+      startTime,
+      endTime,
       startDate,
       endDate,
       category,
+      calendarId,
+      targetRoles,
       location,
       color,
       courseCode,
       isAllDay,
     } = req.body;
 
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!id) {
       res.status(400).json({
         success: false,
-        message: "Invalid event ID format.",
+        message: "Event ID is required.",
       });
       return;
     }
 
-    const event = await Event.findById(id);
+    const event = await findEventByIdOrCustomId(id);
     if (!event) {
       res.status(404).json({
         success: false,
@@ -187,40 +297,40 @@ export const updateEvent = async (
       return;
     }
 
-    const updatedStart = startDate ? new Date(startDate) : event.startDate;
-    const updatedEnd = endDate ? new Date(endDate) : event.endDate;
+    const effectiveDate = date !== undefined ? date : event.date;
+    const effectiveStartTime = startTime !== undefined ? startTime : event.startTime;
+    const effectiveEndTime = endTime !== undefined ? endTime : event.endTime;
 
-    if (isNaN(updatedStart.getTime()) || isNaN(updatedEnd.getTime())) {
-      res.status(400).json({
-        success: false,
-        message: "Invalid date format.",
-      });
-      return;
-    }
-
-    if (updatedStart > updatedEnd) {
-      res.status(400).json({
-        success: false,
-        message: "Start date must be before end date.",
-      });
-      return;
-    }
-
-    const updatedEvent = await Event.findByIdAndUpdate(
-      id,
-      {
-        title: title !== undefined ? title : event.title,
-        description: description !== undefined ? description : event.description,
-        startDate: updatedStart,
-        endDate: updatedEnd,
-        category: category !== undefined ? category : event.category,
-        location: location !== undefined ? location : event.location,
-        color: color !== undefined ? color : event.color,
-        courseCode: courseCode !== undefined ? courseCode : event.courseCode,
-        isAllDay: isAllDay !== undefined ? isAllDay : event.isAllDay,
-      },
-      { returnDocument: "after", runValidators: true }
+    const { start, end } = computeEventDates(
+      effectiveDate,
+      effectiveStartTime,
+      effectiveEndTime,
+      startDate !== undefined ? startDate : event.startDate,
+      endDate !== undefined ? endDate : event.endDate
     );
+
+    const updateFields: Record<string, any> = {
+      startDate: start,
+      endDate: end,
+    };
+
+    if (title !== undefined) updateFields.title = title;
+    if (description !== undefined) updateFields.description = description;
+    if (date !== undefined) updateFields.date = date;
+    if (startTime !== undefined) updateFields.startTime = startTime;
+    if (endTime !== undefined) updateFields.endTime = endTime;
+    if (category !== undefined) updateFields.category = category;
+    if (calendarId !== undefined) updateFields.calendarId = calendarId;
+    if (targetRoles !== undefined) updateFields.targetRoles = targetRoles;
+    if (location !== undefined) updateFields.location = location;
+    if (color !== undefined) updateFields.color = color;
+    if (courseCode !== undefined) updateFields.courseCode = courseCode;
+    if (isAllDay !== undefined) updateFields.isAllDay = isAllDay;
+
+    const updatedEvent = await Event.findByIdAndUpdate(event._id, updateFields, {
+      returnDocument: "after",
+      runValidators: true,
+    });
 
     res.status(200).json({
       success: true,
@@ -240,15 +350,15 @@ export const deleteEvent = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!id) {
       res.status(400).json({
         success: false,
-        message: "Invalid event ID format.",
+        message: "Event ID is required.",
       });
       return;
     }
 
-    const event = await Event.findByIdAndDelete(id);
+    const event = await findEventByIdOrCustomId(id);
     if (!event) {
       res.status(404).json({
         success: false,
@@ -256,6 +366,8 @@ export const deleteEvent = async (
       });
       return;
     }
+
+    await Event.findByIdAndDelete(event._id);
 
     res.status(200).json({
       success: true,
@@ -266,3 +378,4 @@ export const deleteEvent = async (
     next(error);
   }
 };
+

@@ -21,6 +21,7 @@ import aiRoutes from "./routes/ai.routes";
 import statsRoutes from "./routes/stats.routes";
 import eventRoutes from "./routes/event.routes";
 import timetableRoutes from "./routes/timetable.routes";
+import calendarRoutes from "./routes/calendar.routes";
 
 const app: Application = express();
 
@@ -48,7 +49,8 @@ app.use("/api/classes", classRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/results", resultRoutes);
-app.use("/api/routines", routineRoutes);
+app.use("/api/routines", timetableRoutes);
+app.use("/api/timetable", timetableRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/assignments", assignmentRoutes);
 app.use("/api/notices", noticeRoutes);
@@ -56,6 +58,10 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/calendar", eventRoutes);
+app.use("/api/calendars", calendarRoutes);
+app.use("/api/calendar/categories", calendarRoutes);
 
 // Health Check
 app.get("/", (req, res) => {
@@ -72,6 +78,7 @@ app.get("/", (req, res) => {
       "/api/attendance",
       "/api/results",
       "/api/routines",
+      "/api/timetable",
       "/api/leaves",
       "/api/assignments",
       "/api/notices",
@@ -79,22 +86,11 @@ app.get("/", (req, res) => {
       "/api/notifications",
       "/api/ai",
       "/api/stats",
+      "/api/events",
+      "/api/calendars",
     ],
   });
 });
-
-// API Routes
-app.use("/api/students", studentRoutes);
-app.use("/api/teachers", teacherRoutes);
-app.use("/api/admins", adminRoutes);
-app.use("/api/parents", parentRoutes);
-app.use("/api/classes", classRoutes);
-app.use("/api/subjects", subjectRoutes);
-app.use("/api/attendance", attendanceRoutes);
-app.use("/api/stats", statsRoutes);
-app.use("/api/calendar", eventRoutes);
-app.use("/api/events", eventRoutes); // Convenient alias
-app.use("/api/timetable", timetableRoutes);
 
 // Handle 404 Route Not Found
 app.use((req: Request, res: Response) => {
