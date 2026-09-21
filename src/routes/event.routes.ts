@@ -7,15 +7,18 @@ import {
   updateEvent,
   deleteEvent,
 } from "../controllers/event.controller";
+import { verifyAuth, requireRole, optionalAuth } from "../middleware/auth.middleware";
 
 const router = Router();
 
-router.post("/bulk", createBulkEvents);
-router.post("/", createEvent);
-router.get("/", getAllEvents);
-router.get("/:id", getEventById);
-router.patch("/:id", updateEvent);
-router.delete("/:id", deleteEvent);
+// Read events (Public / Authenticated)
+router.get("/", optionalAuth, getAllEvents);
+router.get("/:id", optionalAuth, getEventById);
+
+// Manage events (Admin & Teacher only)
+router.post("/bulk", verifyAuth, requireRole("admin", "teacher"), createBulkEvents);
+router.post("/", verifyAuth, requireRole("admin", "teacher"), createEvent);
+router.patch("/:id", verifyAuth, requireRole("admin", "teacher"), updateEvent);
+router.delete("/:id", verifyAuth, requireRole("admin", "teacher"), deleteEvent);
 
 export default router;
-

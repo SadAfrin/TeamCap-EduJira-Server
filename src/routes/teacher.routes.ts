@@ -6,13 +6,16 @@ import {
   updateTeacher,
   deleteTeacher,
 } from "../controllers/teacher.controller";
+import { verifyAuth, requireRole } from "../middleware/auth.middleware";
 
 const router = Router();
 
+router.use(verifyAuth);
+
 router.get("/", getAllTeachers);
 router.get("/:id", getTeacherById);
-router.post("/", createTeacher);
-router.put("/:id", updateTeacher);
-router.delete("/:id", deleteTeacher);
+router.post("/", requireRole("admin"), createTeacher);
+router.put("/:id", requireRole("admin"), updateTeacher);
+router.delete("/:id", requireRole("admin"), deleteTeacher);
 
 export default router;

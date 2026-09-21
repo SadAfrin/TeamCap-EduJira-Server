@@ -68,27 +68,6 @@ app.get("/", (req, res) => {
   res.json({
     success: true,
     message: "EduJira API Server & Socket.io is running successfully!",
-    endpoints: [
-      "/api/students",
-      "/api/teachers",
-      "/api/admins",
-      "/api/parents",
-      "/api/classes",
-      "/api/subjects",
-      "/api/attendance",
-      "/api/results",
-      "/api/routines",
-      "/api/timetable",
-      "/api/leaves",
-      "/api/assignments",
-      "/api/notices",
-      "/api/messages",
-      "/api/notifications",
-      "/api/ai",
-      "/api/stats",
-      "/api/events",
-      "/api/calendars",
-    ],
   });
 });
 
