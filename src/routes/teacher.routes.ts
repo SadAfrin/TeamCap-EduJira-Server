@@ -15,7 +15,7 @@ router.use(verifyAuth);
 router.get("/", getAllTeachers);
 router.get("/:id", getTeacherById);
 router.post("/", requireRole("admin"), createTeacher);
-router.put("/:id", requireRole("admin"), updateTeacher);
+router.put("/:id", requireRole("admin", "teacher"), updateTeacher);
 router.delete("/:id", requireRole("admin"), deleteTeacher);
 
 export default router;

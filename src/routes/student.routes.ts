@@ -30,7 +30,7 @@ router.post("/:id/reject", verifyAuth, requireRole("admin", "teacher"), rejectSt
 router.get("/", verifyAuth, getAllStudents);
 router.get("/:id", verifyAuth, getStudentById);
 router.post("/", verifyAuth, requireRole("admin"), createStudent);
-router.put("/:id", verifyAuth, requireRole("admin", "teacher"), updateStudent);
+router.put("/:id", verifyAuth, requireRole("admin", "teacher", "student"), updateStudent);
 router.delete("/:id", verifyAuth, requireRole("admin"), deleteStudent);
 
 export default router;

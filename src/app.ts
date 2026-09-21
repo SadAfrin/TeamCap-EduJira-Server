@@ -49,7 +49,7 @@ app.use("/api/classes", classRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/results", resultRoutes);
-app.use("/api/routines", timetableRoutes);
+app.use("/api/routines", routineRoutes);
 app.use("/api/timetable", timetableRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/assignments", assignmentRoutes);

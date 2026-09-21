@@ -75,7 +75,10 @@ export async function getTeacherPortalStats(req: Request, res: Response) {
       teacher = await Teacher.findOne(); // default first teacher as fallback
     }
 
-    const assignedClasses: string[] = teacher?.classes || ["Class 8-A", "Class 8-B", "Class 9-A"];
+    const assignedClasses: string[] =
+      (teacher as any)?.classesAssigned ||
+      (teacher as any)?.classes ||
+      ["Class 8-A", "Class 8-B", "Class 9-A"];
     const classNames = Array.from(new Set(assignedClasses.map((c: string) => c.split("-")[0])));
 
     const [students, subjects] = await Promise.all([

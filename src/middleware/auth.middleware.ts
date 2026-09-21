@@ -2,6 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import Session from "../models/Session.model";
 import User from "../models/User.model";
+import Admin from "../models/Admin.model";
+import Teacher from "../models/Teacher.model";
+import Student from "../models/Student.model";
+import Parent from "../models/Parent.model";
 
 export interface AuthUserData {
   id: string;
@@ -17,7 +21,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 /**
- * Extracts session token from cookies or Authorization header
+ * Extracts session token from headers or cookies
  */
 function extractToken(req: Request): string | null {
   // 1. Check Authorization Bearer Header
@@ -27,13 +31,25 @@ function extractToken(req: Request): string | null {
     if (token) return token;
   }
 
-  // 2. Check Cookie (Standard or Secure HTTPS)
+  // 2. Check Cookie parser output
   if (req.cookies) {
-    if (req.cookies["better-auth.session_token"]) {
-      return req.cookies["better-auth.session_token"];
+    const raw =
+      req.cookies["better-auth.session_token"] ||
+      req.cookies["__Secure-better-auth.session_token"];
+    if (raw) {
+      return typeof raw === "string" ? raw.split(".")[0] : raw;
     }
-    if (req.cookies["__Secure-better-auth.session_token"]) {
-      return req.cookies["__Secure-better-auth.session_token"];
+  }
+
+  // 3. Fallback: Parse raw Cookie header string
+  const rawCookieHeader = req.headers.cookie;
+  if (rawCookieHeader) {
+    const match = rawCookieHeader.match(
+      /(?:^|;\s*)(?:__Secure-)?better-auth\.session_token=([^;]+)/
+    );
+    if (match && match[1]) {
+      const decoded = decodeURIComponent(match[1]);
+      return decoded.split(".")[0];
     }
   }
 
@@ -41,7 +57,60 @@ function extractToken(req: Request): string | null {
 }
 
 /**
- * Middleware: Enforces user authentication
+ * Helper to resolve user and user role
+ */
+async function resolveUserFromSession(sessionToken: string): Promise<AuthUserData | null> {
+  const tokenClean = sessionToken.split(".")[0].trim();
+
+  const session = await Session.findOne({
+    $or: [{ token: sessionToken }, { token: tokenClean }],
+    expiresAt: { $gt: new Date() },
+  });
+
+  if (!session) return null;
+
+  let user = null;
+  if (mongoose.Types.ObjectId.isValid(session.userId)) {
+    user = await User.findById(session.userId);
+  }
+  if (!user) {
+    user = await User.findOne({
+      $or: [{ id: session.userId }, { _id: session.userId }],
+    });
+  }
+
+  if (!user) return null;
+
+  let effectiveRole = (user.role || "student").toLowerCase();
+
+  // If role is pending or default, check matching models by email
+  if (effectiveRole === "pending" || !user.role) {
+    const emailLower = (user.email || "").toLowerCase();
+    const [isAdmin, isTeacher, isParent, isStudent] = await Promise.all([
+      Admin.findOne({ email: emailLower }),
+      Teacher.findOne({ email: emailLower }),
+      Parent.findOne({ email: emailLower }),
+      Student.findOne({ email: emailLower }),
+    ]);
+
+    if (isAdmin) effectiveRole = "admin";
+    else if (isTeacher) effectiveRole = "teacher";
+    else if (isParent) effectiveRole = "parent";
+    else if (isStudent) effectiveRole = "student";
+  }
+
+  return {
+    id: user.id || user._id?.toString(),
+    _id: user._id,
+    name: user.name || "User",
+    email: (user.email || "").toLowerCase(),
+    role: effectiveRole,
+    image: user.image,
+  };
+}
+
+/**
+ * Middleware: Enforces authentication
  */
 export async function verifyAuth(
   req: AuthenticatedRequest,
@@ -59,13 +128,9 @@ export async function verifyAuth(
       return;
     }
 
-    // Lookup session in MongoDB
-    const session = await Session.findOne({
-      token,
-      expiresAt: { $gt: new Date() },
-    });
+    const userData = await resolveUserFromSession(token);
 
-    if (!session) {
+    if (!userData) {
       res.status(401).json({
         success: false,
         message: "Unauthorized: Session is invalid or has expired",
@@ -73,32 +138,7 @@ export async function verifyAuth(
       return;
     }
 
-    // Lookup user associated with session
-    let user = null;
-    if (mongoose.Types.ObjectId.isValid(session.userId)) {
-      user = await User.findById(session.userId);
-    }
-    if (!user) {
-      user = await User.findOne({ $or: [{ id: session.userId }, { _id: session.userId }] });
-    }
-
-    if (!user) {
-      res.status(401).json({
-        success: false,
-        message: "Unauthorized: User not found",
-      });
-      return;
-    }
-
-    req.user = {
-      id: user.id || user._id.toString(),
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: (user.role || "student").toLowerCase(),
-      image: user.image,
-    };
-
+    req.user = userData;
     next();
   } catch (error: any) {
     console.error("Auth Middleware Error:", error);
@@ -111,7 +151,6 @@ export async function verifyAuth(
 
 /**
  * Middleware: Role-Based Access Control (RBAC)
- * Admin always has access. Specified roles also have access.
  */
 export function requireRole(...allowedRoles: string[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
@@ -140,7 +179,7 @@ export function requireRole(...allowedRoles: string[]) {
 }
 
 /**
- * Middleware: Optional Authentication (attaches req.user if present, but doesn't block guests)
+ * Middleware: Optional Authentication
  */
 export async function optionalAuth(
   req: AuthenticatedRequest,
@@ -150,30 +189,9 @@ export async function optionalAuth(
   try {
     const token = extractToken(req);
     if (token) {
-      const session = await Session.findOne({
-        token,
-        expiresAt: { $gt: new Date() },
-      });
-
-      if (session) {
-        let user = null;
-        if (mongoose.Types.ObjectId.isValid(session.userId)) {
-          user = await User.findById(session.userId);
-        }
-        if (!user) {
-          user = await User.findOne({ $or: [{ id: session.userId }, { _id: session.userId }] });
-        }
-
-        if (user) {
-          req.user = {
-            id: user.id || user._id.toString(),
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: (user.role || "student").toLowerCase(),
-            image: user.image,
-          };
-        }
+      const userData = await resolveUserFromSession(token);
+      if (userData) {
+        req.user = userData;
       }
     }
   } catch (error) {
