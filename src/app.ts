@@ -22,6 +22,7 @@ import statsRoutes from "./routes/stats.routes";
 import eventRoutes from "./routes/event.routes";
 import timetableRoutes from "./routes/timetable.routes";
 import calendarRoutes from "./routes/calendar.routes";
+import studyRoutes from "./routes/study.routes";
 
 const app: Application = express();
 
@@ -62,6 +63,7 @@ app.use("/api/events", eventRoutes);
 app.use("/api/calendar", eventRoutes);
 app.use("/api/calendars", calendarRoutes);
 app.use("/api/calendar/categories", calendarRoutes);
+app.use("/api/study-sessions", studyRoutes);
 
 // Health Check
 app.get("/", (req, res) => {
