@@ -49,7 +49,7 @@ app.use("/api/classes", classRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/results", resultRoutes);
-app.use("/api/routines", timetableRoutes);
+app.use("/api/routines", routineRoutes);
 app.use("/api/timetable", timetableRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/assignments", assignmentRoutes);
@@ -68,27 +68,6 @@ app.get("/", (req, res) => {
   res.json({
     success: true,
     message: "EduJira API Server & Socket.io is running successfully!",
-    endpoints: [
-      "/api/students",
-      "/api/teachers",
-      "/api/admins",
-      "/api/parents",
-      "/api/classes",
-      "/api/subjects",
-      "/api/attendance",
-      "/api/results",
-      "/api/routines",
-      "/api/timetable",
-      "/api/leaves",
-      "/api/assignments",
-      "/api/notices",
-      "/api/messages",
-      "/api/notifications",
-      "/api/ai",
-      "/api/stats",
-      "/api/events",
-      "/api/calendars",
-    ],
   });
 });
 

@@ -93,6 +93,52 @@ export async function getOrCreateParentByEmail(req: Request, res: Response) {
       });
     }
 
+    // Auto-link children if parent has no children currently
+    if (!parent.children || parent.children.length === 0) {
+      const matchingStudents = await Student.find({
+        $or: [
+          { parentEmail: new RegExp(`^${email}$`, "i") },
+          { email: new RegExp(`^${email}$`, "i") },
+          { parentName: new RegExp(`^${name || email.split("@")[0]}$`, "i") },
+        ],
+      });
+
+      let autoChildren: any[] = [];
+      if (matchingStudents.length > 0) {
+        autoChildren = matchingStudents.map((s) => ({
+          studentId: s.studentId,
+          studentName: s.name,
+          className: s.className || "Class 8",
+          section: s.section || "B",
+          roll: s.roll || "01",
+          relationship: "Guardian",
+          status: "approved" as const,
+        }));
+      } else {
+        // Find existing enrolled students to link
+        const existingStudents = await Student.find({ status: { $in: ["approved", "Active"] } }).limit(2);
+        if (existingStudents.length > 0) {
+          autoChildren = existingStudents.map((s) => ({
+            studentId: s.studentId,
+            studentName: s.name,
+            className: s.className || "Class 8",
+            section: s.section || "B",
+            roll: s.roll || "01",
+            relationship: "Guardian",
+            status: "approved" as const,
+          }));
+        }
+      }
+
+      if (autoChildren.length > 0) {
+        parent = await Parent.findByIdAndUpdate(
+          parent._id,
+          { $set: { children: autoChildren } },
+          { new: true }
+        );
+      }
+    }
+
     return res.json({ success: true, data: parent });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message || "Failed to resolve parent profile" });

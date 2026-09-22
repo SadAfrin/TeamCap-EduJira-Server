@@ -8,10 +8,14 @@ export function toObjectIdOrNull(id: unknown): mongoose.Types.ObjectId | null {
 }
 
 export function buildIdOrCustomQuery(id: unknown, customField: string) {
-  const strId = String(id || "");
+  const strId = String(id || "").trim();
   const objId = toObjectIdOrNull(strId);
+  const conditions: any[] = [
+    { [customField]: strId },
+    { email: strId.toLowerCase() },
+  ];
   if (objId) {
-    return { $or: [{ _id: objId }, { [customField]: strId }] };
+    conditions.unshift({ _id: objId });
   }
-  return { [customField]: strId };
+  return { $or: conditions };
 }
