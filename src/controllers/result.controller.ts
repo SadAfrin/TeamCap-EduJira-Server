@@ -210,3 +210,28 @@ export async function deleteResult(req: Request, res: Response) {
     return res.status(500).json({ success: false, message: error.message || "Failed to delete result" });
   }
 }
+
+
+export const getTopStudents = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const leaderboard = await Result.aggregate([
+      {
+        $group: {
+          _id: "$studentId",
+          name: { $first: "$studentName" },
+          className: { $first: "$className" },
+          section: { $first: "$section" },
+          // 🚨 Force MongoDB to name these exactly what your frontend expects
+          marks: { $sum: "$marks" }, 
+          gpa: { $avg: "$gpa" }      
+        }
+      },
+      { $sort: { marks: -1 } }, // Sort by the new 'marks' field
+      { $limit: 10 }
+    ]);
+
+    res.status(200).json({ success: true, data: leaderboard });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error generating leaderboard from results" });
+  }
+};
