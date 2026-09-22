@@ -6,6 +6,8 @@ export interface ILinkedChild {
   className: string;
   section: string;
   relationship?: string;
+  status: "pending" | "approved" | "rejected";
+  requestedAt?: Date;
 }
 
 export interface IParent {
@@ -26,6 +28,12 @@ const LinkedChildSchema = new Schema<ILinkedChild>(
     className: { type: String, required: true },
     section: { type: String, required: true },
     relationship: { type: String, default: "Guardian" },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    requestedAt: { type: Date, default: Date.now },
   },
   { _id: false }
 );

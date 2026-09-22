@@ -48,11 +48,15 @@ export async function getAttendanceByClassDate(req: Request, res: Response) {
   try {
     const { className, section, date, studentId, subject } = req.query;
     const filter: any = {};
-    if (className) filter.className = className;
-    if (section) filter.section = section;
+    if (className) {
+      filter.className = { $regex: new RegExp(`^${String(className).trim()}$`, "i") };
+    }
+    if (section) {
+      filter.section = { $regex: new RegExp(`^${String(section).trim()}$`, "i") };
+    }
     if (date) filter.date = normalizeDateString(date as string);
-    if (studentId) filter.studentId = studentId;
-    if (subject) filter.subject = subject;
+    if (studentId) filter.studentId = String(studentId).trim();
+    if (subject) filter.subject = { $regex: new RegExp(`^${String(subject).trim()}$`, "i") };
 
     const records = await Attendance.find(filter).sort({ date: -1, studentName: 1 });
     return res.status(200).json({ success: true, data: records, count: records.length });
@@ -79,27 +83,31 @@ export async function bulkMarkAttendance(req: Request, res: Response) {
 
     const dateStr = normalizeDateString(date);
 
-    const ops = items.map((entry: any) => ({
-      updateOne: {
-        filter: { studentId: entry.studentId, date: dateStr },
-        update: {
-          $set: {
-            studentId: entry.studentId,
-            studentName: entry.studentName,
-            className,
-            section,
-            date: dateStr,
-            status: normalizeStatus(entry.status),
-            subject: entry.subject || subject,
-            markedBy: entry.markedBy || markedBy,
-            academicYear: entry.academicYear || academicYear,
-            term: entry.term || term,
-            remarks: entry.remarks,
+    const ops = items.map((entry: any) => {
+      const studentId = String(entry.studentId || "").trim();
+      const status = normalizeStatus(entry.status);
+      return {
+        updateOne: {
+          filter: { studentId, date: dateStr },
+          update: {
+            $set: {
+              studentId,
+              studentName: entry.studentName || "Student",
+              className: String(className).trim(),
+              section: String(section).trim(),
+              date: dateStr,
+              status,
+              subject: entry.subject || subject,
+              markedBy: entry.markedBy || markedBy,
+              academicYear: entry.academicYear || academicYear,
+              term: entry.term || term,
+              remarks: entry.remarks,
+            },
           },
+          upsert: true,
         },
-        upsert: true,
-      },
-    }));
+      };
+    });
 
     if (ops.length > 0) {
       await Attendance.bulkWrite(ops);
