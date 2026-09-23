@@ -23,6 +23,7 @@ import eventRoutes from "./routes/event.routes";
 import timetableRoutes from "./routes/timetable.routes";
 import calendarRoutes from "./routes/calendar.routes";
 import studyRoutes from "./routes/study.routes";
+import quizRoutes from "./routes/quiz.routes";
 
 const app: Application = express();
 
@@ -43,6 +44,7 @@ app.use(async (req, res, next) => {
 
 // API Routes
 app.use("/api/students", studentRoutes);
+app.use("/api/quizzes", quizRoutes);
 app.use("/api/teachers", teacherRoutes);
 app.use("/api/admins", adminRoutes);
 app.use("/api/parents", parentRoutes);
