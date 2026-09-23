@@ -442,27 +442,35 @@ export const verifyStudentQR = async (req: Request, res: Response): Promise<void
 
 export const getTopStudents = async (req: Request, res: Response): Promise<void> => {
   try {
-    const leaderboard = await Result.aggregate([
+    const { className } = req.query;
+    const pipeline: any[] = [];
+
+    // 1. Filter by Class (if not "All")
+    if (className && className !== "All") {
+      const cleanClassName = (className as string).trim();
+      pipeline.push({
+        $match: { 
+          className: { $regex: new RegExp(`^${cleanClassName}$`, "i") } 
+        }
+      });
+    }
+
+    // 2. Group by Student to calculate totals
+    pipeline.push(
       {
         $group: {
-          // Group by the custom student ID string (e.g., "STD-801")
           _id: "$studentId", 
           name: { $first: "$studentName" },
           className: { $first: "$className" },
-          section: { $first: "$section" },
-          // Force exactly the names your Next.js frontend expects
           marks: { $sum: "$marks" }, 
           gpa: { $avg: "$gpa" }
         }
       },
-      {
-        // Sort by the newly calculated total marks descending
-        $sort: { marks: -1 } 
-      },
-      {
-        $limit: 10
-      }
-    ]);
+      { $sort: { marks: -1 } }, // Sort by highest marks
+      { $limit: 10 } // Get top 10
+    );
+
+    const leaderboard = await Result.aggregate(pipeline); 
 
     res.status(200).json({ success: true, data: leaderboard });
   } catch (error) {

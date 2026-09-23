@@ -19,6 +19,7 @@ import { verifyAuth, requireRole, optionalAuth } from "../middleware/auth.middle
 const router = Router();
 
 // Public routes (Registration & Class dropdown)
+router.get("/top", getTopStudents);
 router.get("/classes", optionalAuth, getClassOptions);
 router.get("/status", checkStudentStatus);
 router.post("/register", registerStudent);
@@ -30,7 +31,7 @@ router.post("/:id/reject", verifyAuth, requireRole("admin", "teacher"), rejectSt
 
 // STATIC GET ROUTES (Must go above /:id)
 router.get("/", verifyAuth, getAllStudents);
-router.get("/leaderboard", verifyAuth, getTopStudents); // 🚨 Moved up! (Added verifyAuth to match your frontend credentials config)
+router.get("/leaderboard", verifyAuth, getTopStudents); 
 
 // DYNAMIC ID ROUTES (Must go below static routes)
 router.get("/verify/:id", verifyStudentQR);
@@ -40,5 +41,6 @@ router.get("/:id", verifyAuth, getStudentById);
 router.post("/", verifyAuth, requireRole("admin"), createStudent);
 router.put("/:id", verifyAuth, requireRole("admin", "teacher", "student"), updateStudent);
 router.delete("/:id", verifyAuth, requireRole("admin"), deleteStudent);
+
 
 export default router;
