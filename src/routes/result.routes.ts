@@ -6,13 +6,16 @@ import {
   batchUpsertResults,
   deleteResult,
 } from "../controllers/result.controller";
+import { verifyAuth, requireRole } from "../middleware/auth.middleware";
 
 const router = Router();
 
+router.use(verifyAuth);
+
 router.get("/transcript", getStudentTranscript);
 router.get("/", getAllResults);
-router.post("/", createOrUpdateResult);
-router.post("/batch", batchUpsertResults);
-router.delete("/:id", deleteResult);
+router.post("/", requireRole("admin", "teacher"), createOrUpdateResult);
+router.post("/batch", requireRole("admin", "teacher"), batchUpsertResults);
+router.delete("/:id", requireRole("admin"), deleteResult);
 
 export default router;

@@ -7,14 +7,18 @@ import {
   updateCalendar,
   deleteCalendar,
 } from "../controllers/calendar.controller";
+import { verifyAuth, requireRole, optionalAuth } from "../middleware/auth.middleware";
 
 const router = Router();
 
-router.get("/", getAllCalendars);
-router.post("/", createCalendar);
-router.post("/bulk", createBulkCalendars);
-router.get("/:id", getCalendarById);
-router.patch("/:id", updateCalendar);
-router.delete("/:id", deleteCalendar);
+// Read calendar entries (Public / Authenticated)
+router.get("/", optionalAuth, getAllCalendars);
+router.get("/:id", optionalAuth, getCalendarById);
+
+// Manage calendar entries (Admin & Teacher only)
+router.post("/", verifyAuth, requireRole("admin", "teacher"), createCalendar);
+router.post("/bulk", verifyAuth, requireRole("admin", "teacher"), createBulkCalendars);
+router.patch("/:id", verifyAuth, requireRole("admin", "teacher"), updateCalendar);
+router.delete("/:id", verifyAuth, requireRole("admin", "teacher"), deleteCalendar);
 
 export default router;

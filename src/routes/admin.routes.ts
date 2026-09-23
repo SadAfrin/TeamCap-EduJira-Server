@@ -6,8 +6,12 @@ import {
   updateAdmin,
   deleteAdmin,
 } from "../controllers/admin.controller";
+import { verifyAuth, requireRole } from "../middleware/auth.middleware";
 
 const router = Router();
+
+// Protect all admin endpoints - requires active login and Admin role
+router.use(verifyAuth, requireRole("admin"));
 
 router.get("/", getAllAdmins);
 router.get("/:id", getAdminById);

@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
 import Student from "../models/Student.model";
+import User from "../models/User.model";
 import Section from "../models/Section.model";
 import { sendNotificationAndEmit } from "../lib/socket";
 import { buildIdOrCustomQuery } from "../lib/idHelper";
+import Result from "../models/Result.model";
 
 // GET /api/students - List students with search, class, and section filters
 export async function getAllStudents(req: Request, res: Response) {
@@ -404,3 +406,75 @@ export async function getClassOptions(req: Request, res: Response) {
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch class options" });
   }
 }
+
+
+
+export const verifyStudentQR = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    
+    // Check the users collection for the exact ID AND the student role
+    const verifiedUser = await User.findOne({ _id: id, role: "student" }).select("name email role");
+    
+    if (!verifiedUser) {
+      res.status(404).json({ 
+        success: false, 
+        message: "Invalid QR Code. Account not found or not a student." 
+      });
+      return;
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Student Verified", 
+      data: {
+        name: verifiedUser.name,
+        email: verifiedUser.email,
+        // Passing these strings since the users collection doesn't hold academic data
+        className: "Verified via Auth", 
+        section: "Active Account"
+      } 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error during verification" });
+  }
+};
+
+export const getTopStudents = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { className } = req.query;
+    const pipeline: any[] = [];
+
+    // 1. Filter by Class (if not "All")
+    if (className && className !== "All") {
+      const cleanClassName = (className as string).trim();
+      pipeline.push({
+        $match: { 
+          className: { $regex: new RegExp(`^${cleanClassName}$`, "i") } 
+        }
+      });
+    }
+
+    // 2. Group by Student to calculate totals
+    pipeline.push(
+      {
+        $group: {
+          _id: "$studentId", 
+          name: { $first: "$studentName" },
+          className: { $first: "$className" },
+          marks: { $sum: "$marks" }, 
+          gpa: { $avg: "$gpa" }
+        }
+      },
+      { $sort: { marks: -1 } }, // Sort by highest marks
+      { $limit: 10 } // Get top 10
+    );
+
+    const leaderboard = await Result.aggregate(pipeline); 
+
+    res.status(200).json({ success: true, data: leaderboard });
+  } catch (error) {
+    console.error("Aggregation error:", error);
+    res.status(500).json({ success: false, message: "Error generating leaderboard" });
+  }
+};
